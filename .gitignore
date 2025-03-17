@@ -1,0 +1,5 @@
+# created by virtualenv automatically
+
+.idea/
+.venv/
+backend/devsync/.env
