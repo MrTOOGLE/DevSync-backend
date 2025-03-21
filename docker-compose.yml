@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/devsync/.env
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+
+  postgres:
+    image: postgres:16.8
+    environment:
+      POSTGRES_DB: devsync
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
