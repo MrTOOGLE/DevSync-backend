@@ -1,14 +1,12 @@
 FROM python:3.12
 
-ENV PYTHONPATH=/backend-app/devsync
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-WORKDIR /backend-app
+WORKDIR /backend_app
 
-COPY requirements.txt /backend-app/
-COPY devsync /backend-app/devsync
+COPY requirements.txt /backend_app/
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install -r requirements.txt
 
-EXPOSE 8000
-
-CMD ["gunicorn", "-b", "0.0.0.0:8000", "devsync.config.wsgi:application"]
+COPY . /backend_app/
