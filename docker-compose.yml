@@ -1,0 +1,27 @@
+services:
+  backend:
+    image: devsync-backend
+    build:
+      context: ./backend
+    command: python devsync/manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/backend_app
+    env_file:
+      - ./backend/devsync/.env
+    depends_on:
+      - postgres
+    ports:
+      - "8000:8000"
+
+  postgres:
+    image: postgres:16.8
+    env_file:
+      - ./backend/devsync/.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+
+volumes:
+  postgres_data:
