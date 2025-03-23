@@ -30,7 +30,9 @@ INSTALLED_APPS = [
     'djoser',
 
     'user',
-    'api'
+    'api',
+    'project',
+    'voting'
 ]
 
 MIDDLEWARE = [
@@ -122,5 +124,6 @@ STATICFILES_DIRS = []
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'user.User'
+
 
 LOGOUT_REDIRECT_URL = '/'
