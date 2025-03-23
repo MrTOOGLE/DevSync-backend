@@ -1,27 +1,43 @@
 services:
-  backend:
-    image: devsync-backend
-    build:
-      context: ./backend
-    command: python devsync/manage.py runserver 0.0.0.0:8000
-    volumes:
-      - ./backend:/backend_app
-    env_file:
-      - ./backend/devsync/.env
-    depends_on:
-      - postgres
-    ports:
-      - "8000:8000"
-
   postgres:
     image: postgres:16.8
+    container_name: devsync-postgres
     env_file:
-      - ./backend/devsync/.env
+      - backend/devsync/.env
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+      - ~/.pg/pg_data/devsync:/var/lib/postgresql/data
     restart: always
 
+  devsync_backend:
+    image: devsync-backend
+    build:
+      dockerfile: backend/devsync/Dockerfile
+      context: backend/devsync
+    container_name: devsync-django
+    volumes:
+      - static_volume:/backend/static
+      - media_volume:/backend/media
+    env_file:
+      - backend/devsync/.env
+    depends_on:
+      - postgres
+    command: >
+      bash -c "python ./manage.py collectstatic --noinput && python ./manage.py migrate && gunicorn -b 0.0.0.0:8000 config.wsgi:application"
+
+  nginx:
+    build:
+      dockerfile: backend/nginx/Dockerfile
+      context: backend/nginx/
+    container_name: devsync-nginx
+    image: devsync-nginx
+    volumes:
+      - static_volume:/backend/static
+      - media_volume:/backend/media
+    depends_on:
+      - devsync_backend
+    ports:
+      - "80:80"
+
 volumes:
-  postgres_data:
+  static_volume:
+  media_volume:

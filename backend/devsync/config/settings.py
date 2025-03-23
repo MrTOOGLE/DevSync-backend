@@ -2,7 +2,9 @@ import os
 
 
 from pathlib import Path
+
 from dotenv import load_dotenv
+from tutorial.settings import BASE_DIR
 
 load_dotenv()
 
@@ -12,7 +14,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 DEBUG = os.getenv("DEBUG") == "True"
 
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS").strip().split(",")
+ALLOWED_HOSTS = [] #os.getenv("ALLOWED_HOSTS").strip().split(",")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -67,12 +69,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': os.getenv("DB_ENGINE"),
-        'NAME': os.getenv("DB_NAME"),
-        'USER': os.getenv("DB_USER"),
-        'PASSWORD': os.getenv("DB_PASSWORD"),
-        'HOST': os.getenv("DB_HOST"),
-        'PORT': int(os.getenv("DB_PORT")),
+        'ENGINE': "django.db.backends.postgresql",
+        'NAME': os.getenv("POSTGRES_DB"),
+        'USER': os.getenv("POSTGRES_USER"),
+        'PASSWORD': os.getenv("POSTGRES_PASSWORD"),
+        'HOST': os.getenv("POSTGRES_HOST"),
+        'PORT': int(os.getenv("POSTGRES_PORT")),
     }
 }
 
@@ -91,22 +93,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-LANGUAGE_CODE = os.getenv("LANGUAGE_CODE")
-TIME_ZONE = os.getenv("TIME_ZONE")
-USE_I18N = os.getenv("USE_I18N") == 'True'
-USE_TZ = os.getenv("USE_TZ") == 'True'
-
-MEDIA_ROOT = BASE_DIR / 'media/'
-MEDIA_URL = '/media/'
-
-STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-AUTH_USER_MODEL = 'user.User'
-
-LOGOUT_REDIRECT_URL = '/'
-
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
@@ -121,3 +107,20 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ]
 }
+
+LANGUAGE_CODE = os.getenv("LANGUAGE_CODE")
+TIME_ZONE = os.getenv("TIME_ZONE")
+USE_I18N = os.getenv("USE_I18N") == 'True'
+USE_TZ = os.getenv("USE_TZ") == 'True'
+
+MEDIA_ROOT = BASE_DIR / 'media/'
+MEDIA_URL = '/media/'
+
+STATIC_URL = '/static/'
+STATIC_ROOT =  'static'
+STATICFILES_DIRS = []
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = 'user.User'
+
+LOGOUT_REDIRECT_URL = '/'
