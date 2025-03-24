@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from tutorial.settings import BASE_DIR
+
 
 load_dotenv()
 
@@ -115,15 +115,23 @@ TIME_ZONE = os.getenv("TIME_ZONE")
 USE_I18N = os.getenv("USE_I18N") == 'True'
 USE_TZ = os.getenv("USE_TZ") == 'True'
 
-MEDIA_ROOT = BASE_DIR / 'media/'
-MEDIA_URL = '/media/'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = 'user.User'
 
 STATIC_URL = '/static/'
 STATIC_ROOT =  'static'
 STATICFILES_DIRS = []
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-AUTH_USER_MODEL = 'user.User'
+MEDIA_ROOT = BASE_DIR / 'media/'
+MEDIA_URL = '/media/'
 
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = os.getenv("EMAIL_PORT")
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL")
 
-LOGOUT_REDIRECT_URL = '/'
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SERVER_EMAIL = EMAIL_HOST_USER
+EMAIL_ADMIN = EMAIL_HOST_USER

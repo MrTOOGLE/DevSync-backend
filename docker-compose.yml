@@ -1,5 +1,5 @@
 services:
-  postgres:
+  devsync_postgres:
     image: postgres:16.8
     container_name: devsync-postgres
     env_file:
@@ -20,11 +20,11 @@ services:
     env_file:
       - backend/devsync/.env
     depends_on:
-      - postgres
+      - devsync_postgres
     command: >
       bash -c "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn -b 0.0.0.0:8000 config.wsgi:application"
 
-  nginx:
+  devsync_nginx:
     build:
       dockerfile: ./Dockerfile
       context: ./backend/nginx/
