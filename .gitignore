@@ -106,3 +106,5 @@ media/
 *.pyc
 *.db
 *.pid
+backend/nginx/media
+backend/nginx/static
