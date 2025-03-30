@@ -1,7 +1,7 @@
-from django.core.mail import send_mail
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from api.tasks import send_confirm_account_email
 from config import settings
 
 
@@ -10,11 +10,5 @@ def index(request):
 
 
 def send_test_mail(request):
-    send_mail(
-        "Test mail",
-        "Test message",
-        settings.EMAIL_HOST_USER,
-        ["manin_nikita04@mail.ru"],
-        fail_silently=False
-    )
+    send_confirm_account_email.delay(settings.EMAIL_TEST_HOST_USER)
     return HttpResponse("Sent successfully")

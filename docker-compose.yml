@@ -1,43 +1,89 @@
+networks:
+  devsync-network:
+    driver: bridge
+
 services:
-  devsync_postgres:
+  postgres:
     image: postgres:16.8
     container_name: devsync-postgres
     env_file:
       - backend/devsync/.env
     volumes:
-      - ~/.pg/pg_data/devsync:/var/lib/postgresql/data
-    restart: always
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - devsync-network
 
-  devsync_backend:
+  redis:
+    image: redis:5-alpine
+    container_name: devsync-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - devsync-network
+
+  backend:
     build:
       dockerfile: ./Dockerfile
       context: ./backend/devsync/
-    image: devsync-django
     container_name: devsync-django
     volumes:
+      - ./backend/devsync:/backend
       - static_volume:/backend/static
       - media_volume:/backend/media
     env_file:
       - backend/devsync/.env
     depends_on:
-      - devsync_postgres
+      - postgres
     command: >
       bash -c "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn -b 0.0.0.0:8000 config.wsgi:application"
+    networks:
+      - devsync-network
 
-  devsync_nginx:
+  celery-worker:
+    build: ./backend/devsync/
+    volumes:
+      - ./backend/devsync:/backend
+    env_file:
+      - backend/devsync/.env
+    depends_on:
+      - redis
+      - backend
+    command: 'celery -A config worker -l info'
+    networks:
+      - devsync-network
+
+  celery-beat:
+    build: ./backend/devsync/
+    volumes:
+      - ./backend/devsync:/backend
+    env_file:
+      - backend/devsync/.env
+    depends_on:
+      - redis
+      - backend
+    command: 'celery -A config beat -l info'
+    networks:
+      - devsync-network
+
+  nginx:
     build:
       dockerfile: ./Dockerfile
       context: ./backend/nginx/
     container_name: devsync-nginx
-    image: devsync-nginx
     volumes:
       - static_volume:/backend/static
       - media_volume:/backend/media
     depends_on:
-      - devsync_backend
+      - backend
     ports:
       - "80:80"
+    networks:
+      - devsync-network
 
 volumes:
   static_volume:
   media_volume:
+  pg_data:
+  redis_data:

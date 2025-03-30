@@ -17,6 +17,6 @@ WORKDIR /backend
 
 COPY --chown=appuser:appuser .. .
 
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 USER appuser
