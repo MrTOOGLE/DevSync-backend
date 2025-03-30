@@ -119,7 +119,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'user.User'
 
 STATIC_URL = '/static/'
-STATIC_ROOT =  'static'
+STATIC_ROOT = 'static'
 STATICFILES_DIRS = []
 
 MEDIA_ROOT = BASE_DIR / 'media/'
