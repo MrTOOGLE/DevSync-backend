@@ -108,3 +108,4 @@ media/
 *.pid
 backend/nginx/media
 backend/nginx/static
+.idea/
