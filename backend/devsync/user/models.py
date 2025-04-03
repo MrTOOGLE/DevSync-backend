@@ -19,11 +19,13 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_email_verified", True)
         return self.create_user(email, password, **extra_fields)
 
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
+    is_email_verified = models.BooleanField(default=False)
     avatar = WEBPField(upload_to="users/%Y/%m/%d/", blank=True, null=True, verbose_name="Аватар")
 
     USERNAME_FIELD = "email"
@@ -35,5 +37,9 @@ class User(AbstractUser):
     def username(self):
         return self.get_username()
 
+    def verify_email(self):
+        self.is_email_verified = True
+        self.save()
+
     def __str__(self):
-        return f"{self.last_name} {self.first_name} (id: {self.id})"
+        return f"{self.last_name} {self.first_name} (id: {self.pk})"

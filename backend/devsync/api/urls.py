@@ -7,4 +7,5 @@ urlpatterns = [
     path("v1/drf-auth/", include("rest_framework.urls")),
     path("v1/auth/", include("djoser.urls")),
     re_path(r"^auth/", include("djoser.urls.authtoken")),
+    path("v1/user/", include("user.urls")),
 ]

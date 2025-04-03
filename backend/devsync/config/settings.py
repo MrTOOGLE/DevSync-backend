@@ -1,10 +1,8 @@
 import os
 
-
 from pathlib import Path
 
 from dotenv import load_dotenv
-
 
 load_dotenv()
 
@@ -14,7 +12,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 DEBUG = os.getenv("DEBUG") == "True"
 
-ALLOWED_HOSTS = [] #os.getenv("ALLOWED_HOSTS").strip().split(",")
+ALLOWED_HOSTS = []  # os.getenv("ALLOWED_HOSTS").strip().split(",")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -95,21 +93,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
-    ],
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-    ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ]
-}
-
 LANGUAGE_CODE = os.getenv("LANGUAGE_CODE")
 TIME_ZONE = os.getenv("TIME_ZONE")
 USE_I18N = os.getenv("USE_I18N") == 'True'
@@ -126,6 +109,28 @@ STATICFILES_DIRS = []
 # media files
 MEDIA_ROOT = BASE_DIR / 'media/'
 MEDIA_URL = '/media/'
+
+# rest framework
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ]
+}
+
+# auth settings
+EMAIL_VERIFICATION_CODE_LIFETIME = int(os.getenv("EMAIL_VERIFICATION_CODE_LIFETIME"))
+EMAIL_VERIFICATION_CODE_RESEND_TIMEOUT = int(os.getenv("EMAIL_VERIFICATION_CODE_RESEND_TIMEOUT"))
+EMAIL_VERIFICATION_MAX_ATTEMPTS = int(os.getenv("EMAIL_VERIFICATION_MAX_ATTEMPTS"))
+EMAIL_VERIFICATION_SUBJECT = os.getenv("EMAIL_VERIFICATION_SUBJECT")
 
 # smtp
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -146,6 +151,19 @@ REDIS_PORT = os.getenv("REDIS_PORT")
 CELERY_BROKER_URL = f'redis://{REDIS_HOST}:{REDIS_PORT}/0'
 CELERY_BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 3600}
 CELERY_RESULT_BACKEND = CELERY_BROKER_URL
-CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
+
+# caching
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}",
+        "OPTIONS": {
+            "db": "1"
+        },
+    }
+}
+VERIFICATION_CODE_CACHE_NAME = "code_{user_id}"
+
