@@ -31,7 +31,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('title', models.CharField(max_length=150)),
                 ('date_created', models.DateTimeField(auto_now_add=True)),
-                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='departments', to='project.project')),
+                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='departments', to='projects.project')),
             ],
         ),
         migrations.CreateModel(
@@ -39,7 +39,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('date_joined', models.DateTimeField(auto_now_add=True)),
-                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='members', to='project.project')),
+                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='members', to='projects.project')),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='project_memberships', to=settings.AUTH_USER_MODEL)),
             ],
         ),
@@ -50,8 +50,8 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=100)),
                 ('color', models.CharField(max_length=7)),
                 ('rank', models.IntegerField(default=1, validators=[django.core.validators.MinValueValidator(1), django.core.validators.MaxValueValidator(100)])),
-                ('department', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='roles', to='project.department')),
-                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='roles', to='project.project')),
+                ('department', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='roles', to='projects.department')),
+                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='roles', to='projects.project')),
             ],
         ),
         migrations.CreateModel(
@@ -77,7 +77,7 @@ class Migration(migrations.Migration):
                 ('vote_in_voting', models.BooleanField(default=False)),
                 ('manage_comments', models.BooleanField(default=False)),
                 ('view_audit', models.BooleanField(default=False)),
-                ('role', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='permissions', to='project.role', unique=True)),
+                ('role', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='permissions', to='projects.role', unique=True)),
             ],
         ),
         migrations.CreateModel(
@@ -85,7 +85,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('date_joined', models.DateTimeField(auto_now_add=True)),
-                ('department', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='members', to='project.department')),
+                ('department', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='members', to='projects.department')),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='department_memberships', to=settings.AUTH_USER_MODEL)),
             ],
             options={

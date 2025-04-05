@@ -6,12 +6,12 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('user', '0001_initial'),
+        ('users', '0001_initial'),
     ]
 
     operations = [
         migrations.RunSQL(
-            sql="ALTER SEQUENCE user_user_id_seq RESTART WITH 10000000;",
-            reverse_sql="ALTER SEQUENCE user_user_id_seq RESTART WITH 1;"
+            sql="ALTER SEQUENCE users_user_id_seq RESTART WITH 10000000;",
+            reverse_sql="ALTER SEQUENCE users_user_id_seq RESTART WITH 1;"
         ),
     ]

@@ -7,13 +7,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('project', '0001_initial'),
+        ('projects', '0001_initial'),
     ]
 
     operations = [
         migrations.AlterField(
             model_name='rolepermissions',
             name='role',
-            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='permissions', to='project.role'),
+            field=models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='permissions', to='projects.role'),
         ),
     ]

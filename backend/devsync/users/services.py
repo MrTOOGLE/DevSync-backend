@@ -9,12 +9,11 @@ def generate_verification_code() -> str:
     return str(randint(100000, 999999))
 
 
-def send_email(title, message, user_email: str):
+def send_email(subject: str, message: str, user_email: str) -> None:
     send_mail(
-        title,
+        subject,
         message,
         settings.EMAIL_HOST_USER,
         [user_email],
         fail_silently=False,
     )
-

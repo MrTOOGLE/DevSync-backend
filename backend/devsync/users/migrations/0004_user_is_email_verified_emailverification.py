@@ -9,7 +9,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('user', '0003_rename_photo_user_avatar'),
+        ('users', '0003_rename_photo_user_avatar'),
     ]
 
     operations = [

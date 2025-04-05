@@ -27,9 +27,9 @@ INSTALLED_APPS = [
     'corsheaders',
     'djoser',
 
-    'user',
+    'users',
     'api',
-    'project',
+    'projects',
     'voting'
 ]
 
@@ -99,7 +99,7 @@ USE_I18N = os.getenv("USE_I18N") == 'True'
 USE_TZ = os.getenv("USE_TZ") == 'True'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-AUTH_USER_MODEL = 'user.User'
+AUTH_USER_MODEL = 'users.User'
 
 # static files
 STATIC_URL = '/static/'
@@ -165,5 +165,4 @@ CACHES = {
         },
     }
 }
-VERIFICATION_CODE_CACHE_NAME = "code_{user_id}"
-
+VERIFICATION_CODE_CACHE_NAME = "code_{username}"
