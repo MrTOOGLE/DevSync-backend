@@ -13,7 +13,7 @@ def send_verification_code_email(user_first_name: str, user_last_name: str, veri
     )
 
     html_message = render_to_string(
-        "user/email_verification.html",
+        "users/email_verification.html",
         {
             "username": f"{user_last_name} {user_first_name}",
             "verification_code": verification_code
