@@ -109,3 +109,4 @@ media/
 backend/nginx/media
 backend/nginx/static
 .idea/
+backend/devsync/logs/*.log

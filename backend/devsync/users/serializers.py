@@ -1,6 +1,7 @@
 from django.core.cache import cache
+from djoser.serializers import TokenCreateSerializer as BaseTokenCreateSerializer
 from rest_framework import serializers
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import ValidationError, PermissionDenied
 
 from config import settings
 from .models import User
@@ -12,9 +13,9 @@ def validate_email(value):
     try:
         user = User.objects.get(email=value)
         if user.is_email_verified:
-            raise ValidationError("This email is already verified.")
+            raise ValidationError("Данный email уже подтвержден.")
     except User.DoesNotExist:
-        raise ValidationError("There is no user with this email.")
+        raise ValidationError("Нет пользователя с таким email.")
     return value
 
 
@@ -39,7 +40,7 @@ class SendVerificationCodeSerializer(serializers.Serializer):
                 user.email,
             )
         except User.DoesNotExist:
-            raise serializers.ValidationError("There is no user with this email0.")
+            raise serializers.ValidationError("Нет пользователя с таким email.")
 
 
 class ConfirmEmailSerializer(serializers.Serializer):
@@ -52,10 +53,10 @@ class ConfirmEmailSerializer(serializers.Serializer):
         cached_code = cache.get(code_cache_name)
 
         if not cached_code:
-            raise ValidationError("Invalid verification code.")
+            raise ValidationError("Недействительный код верификации.")
 
         if cached_code != value:
-            raise ValidationError("The code does not match.")
+            raise ValidationError("Коды не совпадают.")
 
         return value
 
@@ -66,3 +67,14 @@ class ConfirmEmailSerializer(serializers.Serializer):
 
         code_cache_name = settings.VERIFICATION_CODE_CACHE_NAME.format(username=email)
         cache.delete(code_cache_name)
+
+
+class TokenCreateSerializer(BaseTokenCreateSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+
+        user = self.user
+        if not user.is_email_verified:
+            raise PermissionDenied("Email не подтвержден. Пожалуйста, подтвердите ваш email перед входом.")
+
+        return data

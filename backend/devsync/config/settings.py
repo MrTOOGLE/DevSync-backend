@@ -43,6 +43,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'corsheaders.middleware.CorsMiddleware',
+    'config.middleware.RequestLoggingMiddleware'
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -123,7 +124,15 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
-    ]
+    ],
+}
+
+# djoser
+
+DJOSER = {
+    'SERIALIZERS': {
+        'token_create': 'users.serializers.TokenCreateSerializer',
+    }
 }
 
 # auth settings
@@ -166,3 +175,115 @@ CACHES = {
     }
 }
 VERIFICATION_CODE_CACHE_NAME = "code_{username}"
+
+# logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'request': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message} {request} {response}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'django.server': {
+            '()': 'django.utils.log.ServerFormatter',
+            'format': '[{server_time}] {message}',
+            'style': '{',
+        }
+    },
+
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
+        'require_debug_false': {
+            '()': 'django.utils.log.RequireDebugFalse',
+        }
+    },
+
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'filters': ['require_debug_true'],
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+
+        'file': {
+            'level': 'INFO',
+            'class': 'config.logging_handlers.DailyDirectoryFileHandler',
+            'filename': 'logs/server.log',
+            'when': 'midnight',
+            'backupCount': 7,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+        },
+
+        'file_request': {
+            'level': 'INFO',
+            'class': 'config.logging_handlers.DailyDirectoryFileHandler',
+            'filename': 'logs/requests.log',
+            'when': 'midnight',
+            'backupCount': 7,
+            'formatter': 'request',
+            'encoding': 'utf-8',
+        },
+
+        'sql': {
+            'level': 'DEBUG',
+            'class': 'config.logging_handlers.DailyDirectoryFileHandler',
+            'filename': 'logs/sql.log',
+            'when': 'midnight',
+            'backupCount': 7,
+            'formatter': 'verbose',
+            'encoding': 'utf-8',
+            'filters': ['require_debug_true'],
+        },
+
+        'django.server': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'django.server',
+        },
+    },
+
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+
+        'users': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+
+        'django.server': {
+            'handlers': ['django.server'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+
+        'django.request': {
+            'handlers': ['file_request', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+
+        'django.db.backends': {
+            'handlers': ['sql'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    }
+}

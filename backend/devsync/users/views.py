@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -5,6 +7,9 @@ from rest_framework.views import APIView
 
 from .serializers import ConfirmEmailSerializer, SendVerificationCodeSerializer
 from .throttling import VerificationCodeSendThrottle
+
+
+logger = logging.getLogger('__name__')
 
 
 class SendVerificationCodeAPIView(APIView):
@@ -18,6 +23,7 @@ class SendVerificationCodeAPIView(APIView):
         return Response({"status": "success"}, status=status.HTTP_201_CREATED)
 
 
+
 class ConfirmEmailAPIView(APIView):
     def post(self, request: Request):
         serializer = ConfirmEmailSerializer(data=request.data)
@@ -25,3 +31,4 @@ class ConfirmEmailAPIView(APIView):
         serializer.save()
 
         return Response({"status": "success"}, status=status.HTTP_200_OK)
+
