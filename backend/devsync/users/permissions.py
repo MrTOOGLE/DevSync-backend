@@ -10,3 +10,12 @@ class IsAdminOrOwnerOrReadOnly(BasePermission):
             return True
 
         return obj == request.user
+
+
+class IsAdminOnly(BasePermission):
+    def has_permission(self, request, view):
+        if not request.user:
+            return False
+        if request.user.is_superuser:
+            return True
+        return False

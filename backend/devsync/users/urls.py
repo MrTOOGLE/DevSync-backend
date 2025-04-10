@@ -9,7 +9,7 @@ router.register(r'', UserViewSet, basename='user')
 
 
 urlpatterns = [
-    path('', include(router.urls)),
     path("send-code/", views.SendVerificationCodeAPIView.as_view(), name="send_verification_code"),
     path("confirm-email/", views.ConfirmEmailAPIView.as_view(), name="confirm_email"),
+    path('', include(router.urls)),
 ]

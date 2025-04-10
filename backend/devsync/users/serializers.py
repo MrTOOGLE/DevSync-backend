@@ -85,3 +85,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'email', 'first_name', 'last_name', 'city', 'avatar')
         read_only_fields = ['id', 'email']
+
+    def validate_email(self, value):
+        if self.instance and self.instance.email != value:
+            raise serializers.ValidationError("Изменение email запрещено")
+        return value

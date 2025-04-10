@@ -1,11 +1,14 @@
 import logging
 
+from djoser.serializers import UserCreatePasswordRetypeSerializer
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .permissions import IsAdminOrOwnerOrReadOnly
+from .permissions import IsAdminOrOwnerOrReadOnly, IsAdminOnly
 from .serializers import ConfirmEmailSerializer, SendVerificationCodeSerializer, UserSerializer
 from .throttling import VerificationCodeSendThrottle
 from .models import User
@@ -39,6 +42,22 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = (IsAdminOrOwnerOrReadOnly,)
 
+    serializer_classes = {
+        'create': UserCreatePasswordRetypeSerializer
+    }
+
+    def get_permissions(self):
+        if self.action == 'me':
+            self.permission_classes = (IsAuthenticated, IsAdminOrOwnerOrReadOnly)
+        elif self.action == 'list':
+            self.permission_classes = (IsAuthenticated, IsAdminOnly)
+        return super().get_permissions()
+
+    def get_serializer_class(self):
+        if self.action in self.serializer_classes:
+            return self.serializer_classes[self.action]
+        return self.serializer_class
+
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         serializer = self.get_serializer(instance)
@@ -59,3 +78,19 @@ class UserViewSet(viewsets.ModelViewSet):
 
         self.perform_destroy(instance)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get_object(self):
+        if self.action == 'me':
+            return self.request.user
+        return super().get_object()
+
+    @action(detail=False, methods=['get', 'put', 'patch', 'delete'])
+    def me(self, request, *args, **kwargs):
+        if request.method == 'GET':
+            return self.retrieve(request, *args, **kwargs)
+        elif request.method == 'PUT':
+            return self.update(request, *args, **kwargs)
+        elif request.method == 'PATCH':
+            return self.partial_update(request, *args, **kwargs)
+        elif request.method == 'DELETE':
+            return self.destroy(request, *args, **kwargs)
