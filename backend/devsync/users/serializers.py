@@ -78,3 +78,10 @@ class TokenCreateSerializer(BaseTokenCreateSerializer):
             raise PermissionDenied("Email не подтвержден. Пожалуйста, подтвердите ваш email перед входом.")
 
         return data
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'email', 'first_name', 'last_name', 'city', 'avatar')
+        read_only_fields = ['id', 'email']

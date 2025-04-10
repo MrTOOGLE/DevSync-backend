@@ -185,9 +185,18 @@ LOGGING = {
             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
             'style': '{',
         },
-        'request': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message} {request} {response}',
-            'style': '{',
+        'json': {
+            '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+            'format': '''
+                {
+                    "timestamp": "%(asctime)s",
+                    "level": "%(levelname)s",
+                    "logger": "%(name)s",
+                    "message": "%(message)s",
+                    "request": %(request)s,
+                    "response": %(response)s
+                }
+            ''',
         },
         'simple': {
             'format': '{levelname} {asctime} {module} {message}',
@@ -233,7 +242,7 @@ LOGGING = {
             'filename': 'logs/requests.log',
             'when': 'midnight',
             'backupCount': 7,
-            'formatter': 'request',
+            'formatter': 'json',
             'encoding': 'utf-8',
         },
 

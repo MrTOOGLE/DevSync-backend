@@ -1,7 +1,6 @@
+import json
 import logging
 import time
-
-from django.http import JsonResponse
 
 logger = logging.getLogger('django.request')
 
@@ -36,10 +35,10 @@ class RequestLoggingMiddleware:
             log_level = logging.INFO if response.status_code < 400 else logging.WARNING
             logger.log(
                 log_level,
-                "Request processed",
+                f"Request processed",
                 extra={
-                    'request': request_info,
-                    'response': response_info
+                    'request': json.dumps(request_info, ensure_ascii=False),
+                    'response': json.dumps(response_info, ensure_ascii=False)
                 }
             )
 
@@ -60,12 +59,6 @@ class RequestLoggingMiddleware:
                 },
                 exc_info=True
             )
-
-            if request.path.startswith('/api/'):
-                return JsonResponse(
-                    {'error': str(e), 'status': 'error'},
-                    status=500
-                )
             raise
 
     @staticmethod
