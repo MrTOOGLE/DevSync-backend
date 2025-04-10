@@ -24,7 +24,7 @@ class CustomUserManager(BaseUserManager):
 
 
 class User(AbstractUser):
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, null=False, blank=False)
     is_email_verified = models.BooleanField(default=False)
     avatar = WEBPField(upload_to="users/%Y/%m/%d/", blank=True, null=True, verbose_name="Аватар")
     city = models.CharField(max_length=50, blank=False, default="Москва")
