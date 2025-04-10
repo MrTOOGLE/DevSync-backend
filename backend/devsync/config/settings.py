@@ -270,7 +270,7 @@ LOGGING = {
 
         'django.server': {
             'handlers': ['django.server'],
-            'level': 'INFO',
+            'level': 'DEBUG',
             'propagate': False,
         },
 
