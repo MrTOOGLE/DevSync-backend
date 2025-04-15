@@ -44,7 +44,6 @@ MIDDLEWARE = [
 
     'corsheaders.middleware.CorsMiddleware',
     'config.middleware.RequestLoggingMiddleware',
-    'config.middleware.Handler500Middleware'
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -296,4 +295,9 @@ LOGGING = {
             'propagate': False,
         },
     }
+}
+
+REQUEST_LOGGING = {
+    "EXCLUDE_PATHS": [],
+    "SENSITIVE_KEYS": ['password', 'token', 'code'],
 }
