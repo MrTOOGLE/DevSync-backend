@@ -2,6 +2,8 @@ import json
 import logging
 import time
 
+from django.http import JsonResponse
+
 logger = logging.getLogger('django.request')
 
 
@@ -77,3 +79,17 @@ class RequestLoggingMiddleware:
         return ''.join(traceback.format_exception(
             type(exception), exception, exception.__traceback__
         ))
+
+
+class Handler500Middleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_exception(self, request, exception):
+        return JsonResponse({
+            "success": False,
+            "message": str(exception),
+        })

@@ -7,10 +7,10 @@ User = get_user_model()
 
 
 class Project(models.Model):
-    title = models.CharField(max_length=150)
+    title = models.CharField(max_length=256)
     date_created = models.DateTimeField(auto_now_add=True)
     creator = models.ForeignKey(User, related_name='created_projects', on_delete=models.CASCADE)
-    description = models.TextField(blank=True, default='')
+    description = models.CharField(max_length=1256, blank=True, default='')
 
     def __str__(self):
         return f"{self.title} (Owner: {self.creator})"
