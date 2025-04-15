@@ -3,7 +3,25 @@ import json
 from django.http import HttpRequest, HttpResponse
 
 
-def get_request_info(request: HttpRequest,  **kwargs) -> dict:
+def get_request_info(request: HttpRequest, **kwargs) -> dict:
+    """
+    Extract and return information from a Django HttpRequest object.
+
+    Args:
+        request: The Django HttpRequest object to extract information from
+        **kwargs: Additional key-value pairs to include in the returned dictionary
+
+    Returns:
+        dict: A dictionary containing request information including:
+            - method: HTTP method (GET, POST, etc.)
+            - path: Request path
+            - user_agent: User agent string from headers
+            - ip: Client IP address
+            - user: Authenticated user or 'anonymous'
+            - content_type: Request content type
+            - query_params: Dictionary of query parameters
+            - Any additional kwargs provided
+    """
     return {
         'method': request.method,
         'path': request.path,
@@ -17,6 +35,22 @@ def get_request_info(request: HttpRequest,  **kwargs) -> dict:
 
 
 def get_response_info(response: HttpResponse, **kwargs) -> dict:
+    """
+    Extract and return information from a Django HttpResponse object.
+
+    Args:
+        response: The Django HttpResponse object to extract information from
+        **kwargs: Additional key-value pairs to include in the returned dictionary
+
+    Returns:
+        dict: A dictionary containing response information including:
+            - status_code: HTTP status code
+            - duration_sec: Duration in seconds (rounded to 4 decimal places)
+            - content_type: Response content type
+            - size_kb: Response content size in kilobytes
+            - content_sample: Parsed JSON content if content type is application/json
+            - Any additional kwargs provided
+    """
     duration = round(kwargs.get('duration_sec', -1), 4)
     content_type = response.headers.get('Content-Type')
     if hasattr(response, 'content') and content_type == 'application/json':
@@ -33,6 +67,24 @@ def get_response_info(response: HttpResponse, **kwargs) -> dict:
 
 
 def get_error_info(request: HttpRequest, e: Exception, **kwargs) -> dict:
+    """
+    Generate error information dictionary from an exception.
+
+    Args:
+        request: The Django HttpRequest object associated with the error
+        e: The exception that occurred
+        **kwargs: Additional key-value pairs to include in the returned dictionary
+
+    Returns:
+        dict: A dictionary containing:
+            - request: Information about the request (from get_request_info)
+            - response: Error information including:
+                - type: Exception type name
+                - message: Exception message
+                - stack_trace: Formatted stack trace
+                - duration_sec: Duration in seconds (rounded to 4 decimal places)
+            - Any additional kwargs provided
+    """
     request_info = get_request_info(request)
     duration = round(kwargs.get('duration_sec', -1), 4)
 
@@ -51,6 +103,16 @@ def get_error_info(request: HttpRequest, e: Exception, **kwargs) -> dict:
 
 
 def get_client_ip(request: HttpRequest) -> str:
+    """
+    Extract the client IP address from a Django HttpRequest object.
+
+    Args:
+        request: The Django HttpRequest object
+
+    Returns:
+        str: The client IP address, checking X-Forwarded-For header first,
+             then falling back to REMOTE_ADDR
+    """
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
     if x_forwarded_for:
         return x_forwarded_for.split(',')[0]
@@ -59,6 +121,15 @@ def get_client_ip(request: HttpRequest) -> str:
 
 
 def get_traceback(exception: Exception) -> str:
+    """
+    Generate a formatted stack trace string from an exception.
+
+    Args:
+        exception: The exception to get the traceback for
+
+    Returns:
+        str: Formatted stack trace as a string
+    """
     import traceback
 
     traceback_str = ''.join(traceback.format_exception(
