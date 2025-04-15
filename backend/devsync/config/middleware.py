@@ -1,95 +1,69 @@
+import functools
 import json
 import logging
 import time
+from pprint import pprint
 
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpRequest, HttpResponse
+
+from . import settings
+from .utils.requests import get_request_info, get_response_info, get_error_info
+from .utils.utils import apply_sensitive_filter
 
 logger = logging.getLogger('django.request')
 
+REQUEST_LOGGING_CONFIG = settings.REQUEST_LOGGING
+
+SENSITIVE_KEYS = REQUEST_LOGGING_CONFIG.get('SENSITIVE_KEYS', [])
+
+apply_sensitive_filter_decorator = apply_sensitive_filter(SENSITIVE_KEYS)
+
+get_request_info = apply_sensitive_filter_decorator(get_request_info)
+get_response_info = apply_sensitive_filter_decorator(get_response_info)
+get_error_info = apply_sensitive_filter_decorator(get_error_info)
+
 
 class RequestLoggingMiddleware:
+    _SUCCESS_REQUEST_PROCESSING_MESSAGE = 'Request processed successfully'
+    _FAIL_REQUEST_PROCESSING_MESSAGE = 'Request processed failed'
+
     def __init__(self, get_response):
         self.get_response = get_response
 
-    def __call__(self, request):
-        start_time = time.time()
-
-        request_info = {
-            'method': request.method,
-            'path': request.path,
-            'user_agent': request.META.get('HTTP_USER_AGENT'),
-            'ip': self._get_client_ip(request),
-            'user': str(request.user) if hasattr(request, 'user') else 'anonymous',
-            'query_params': dict(request.GET),
-            'content_type': request.content_type
-        }
+    def __call__(self, request: HttpRequest):
+        start_time = time.perf_counter()
 
         try:
             response = self.get_response(request)
-            duration = time.time() - start_time
-            response_info = {
-                'status_code': response.status_code,
-                'duration_sec': round(duration, 4),
-                'content_type': response.headers.get('Content-Type'),
-                'size_kb': len(response.content) / 1024 if hasattr(response, 'content') else 0
-            }
-
-            log_level = logging.INFO if response.status_code < 400 else logging.WARNING
-            logger.log(
-                log_level,
-                f"Request processed",
-                extra={
-                    'request': json.dumps(request_info, ensure_ascii=False),
-                    'response': json.dumps(response_info, ensure_ascii=False)
-                }
-            )
-
-            return response
-
         except Exception as e:
-            duration = time.time() - start_time
+            duration = time.perf_counter() - start_time
+            error_info = get_error_info(request, e, duration_sec=duration)
             logger.error(
-                "Request processing failed",
-                extra={
-                    'request': request_info,
-                    'response': {
-                        'type': type(e).__name__,
-                        'message': str(e),
-                        'stack_trace': self._get_traceback(e),
-                        'duration_sec': round(duration, 4)
-                    },
-                },
+                self._FAIL_REQUEST_PROCESSING_MESSAGE,
+                extra=error_info,
                 exc_info=True
             )
-            raise
+            return JsonResponse({
+                "success": False,
+                "message": str(e),
+            }, status=500)
+
+        duration = time.perf_counter() - start_time
+        request_info = get_request_info(request)
+        response_info = get_response_info(response, duration_sec=duration)
+        pprint(request_info)
+        pprint(response_info)
+        logger.log(
+            level=self._get_log_level(response),
+            msg=self._SUCCESS_REQUEST_PROCESSING_MESSAGE,
+            extra={
+                'request': json.dumps(request_info, ensure_ascii=False),
+                'response': json.dumps(response_info, ensure_ascii=False)
+            }
+        )
+
+        return response
 
     @staticmethod
-    def _get_client_ip(request):
-        x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[0]
-        else:
-            ip = request.META.get('REMOTE_ADDR')
-        return ip
-
-    @staticmethod
-    def _get_traceback(exception):
-        import traceback
-
-        return ''.join(traceback.format_exception(
-            type(exception), exception, exception.__traceback__
-        ))
-
-
-class Handler500Middleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        return self.get_response(request)
-
-    def process_exception(self, request, exception):
-        return JsonResponse({
-            "success": False,
-            "message": str(exception),
-        })
+    def _get_log_level(response: HttpResponse):
+        return logging.INFO if response.status_code < 400 else logging.WARNING
