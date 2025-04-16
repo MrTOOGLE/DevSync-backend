@@ -1,15 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from .views import VotingViewSet, VotingOptionViewSet, VotingOptionChoiceViewSet
+from .views import VotingViewSet, VotingOptionViewSet, VotingOptionChoiceViewSet, VotingCommentViewSet
 
 router = DefaultRouter()
 router.register(r'', VotingViewSet, basename='voting')
-
+router.register(r'option', VotingOptionViewSet, basename='voting-option')
+router.register(r'choice', VotingOptionChoiceViewSet, basename='voting-choice')
+router.register(r'comment', VotingCommentViewSet, basename='voting-comment')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('option/', VotingOptionViewSet.as_view(), name='voting_option'),
-    path('option-choice/', VotingOptionChoiceViewSet.as_view(), name='voting_option_choice'),
-    path('comment/', include(router.urls)),
 ]
