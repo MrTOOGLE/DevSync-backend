@@ -21,6 +21,5 @@ class DailyDirectoryFileHandler(TimedRotatingFileHandler):
         return os.path.join(self.getDailyDir(), self.base_filename)
 
     def doRollover(self):
-        # Обновляем путь перед ротацией
         self.baseFilename = self.getCurrentFilename()
         super().doRollover()

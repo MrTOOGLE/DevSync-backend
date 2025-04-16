@@ -283,9 +283,15 @@ LOGGING = {
             'propagate': False,
         },
 
-        'django.request': {
-            'handlers': ['file_request', 'console'],
+        'requests': {
+            'handlers': ['console', 'file_request'],
             'level': 'DEBUG',
+            'propagate': False,
+        },
+
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
             'propagate': False,
         },
 
@@ -299,5 +305,5 @@ LOGGING = {
 
 REQUEST_LOGGING = {
     "EXCLUDE_PATHS": [],
-    "SENSITIVE_KEYS": ['password', 'token', 'code'],
+    "SENSITIVE_KEYS": ['password', 'token'],
 }

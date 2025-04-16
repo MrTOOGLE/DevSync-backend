@@ -4,7 +4,7 @@ from .models import Project, ProjectMember, Department, DepartmentMember, Role, 
 
 @admin.register(Project)
 class ProjectAdmin(admin.ModelAdmin):
-    list_display = ("title", "creator", "date_created")
+    list_display = ("title", "owner", "date_created")
     search_fields = ["title", "creator__email"]
 
     save_on_top = True

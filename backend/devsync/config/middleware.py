@@ -1,16 +1,14 @@
-import functools
 import json
 import logging
 import time
-from pprint import pprint
 
-from django.http import JsonResponse, HttpRequest, HttpResponse
+from django.http import JsonResponse, HttpRequest
 
 from . import settings
 from .utils.requests import get_request_info, get_response_info, get_error_info
 from .utils.utils import apply_sensitive_filter
 
-logger = logging.getLogger('django.request')
+logger = logging.getLogger('requests')
 
 REQUEST_LOGGING_CONFIG = settings.REQUEST_LOGGING
 
@@ -43,19 +41,15 @@ class RequestLoggingMiddleware:
                 extra=error_info,
                 exc_info=True
             )
-            return JsonResponse({
-                "success": False,
-                "message": str(e),
-            }, status=500)
+            raise
 
         duration = time.perf_counter() - start_time
         request_info = get_request_info(request)
         response_info = get_response_info(response, duration_sec=duration)
-        pprint(request_info)
-        pprint(response_info)
+
         logger.log(
-            level=self._get_log_level(response),
-            msg=self._SUCCESS_REQUEST_PROCESSING_MESSAGE,
+            level=self._get_log_level(response.status_code),
+            msg=self._get_log_message(response.status_code),
             extra={
                 'request': json.dumps(request_info, ensure_ascii=False),
                 'response': json.dumps(response_info, ensure_ascii=False)
@@ -64,6 +58,21 @@ class RequestLoggingMiddleware:
 
         return response
 
+    def process_exception(self, request, exception):
+        return JsonResponse({
+            "detail": str(exception),
+        }, status=500)
+
+    @classmethod
+    def _get_log_message(cls, status_code: int) -> str:
+        if status_code < 500:
+            return cls._SUCCESS_REQUEST_PROCESSING_MESSAGE
+        return cls._FAIL_REQUEST_PROCESSING_MESSAGE
+
     @staticmethod
-    def _get_log_level(response: HttpResponse):
-        return logging.INFO if response.status_code < 400 else logging.WARNING
+    def _get_log_level(status_code: int) -> int:
+        if status_code < 400:
+            return logging.INFO
+        elif status_code < 500:
+            return logging.WARNING
+        return logging.ERROR
