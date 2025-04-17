@@ -12,7 +12,7 @@ from config.settings import PUBLIC_PROJECTS_CACHE_KEY
 from .filters import ProjectFilter
 from .models import Project, ProjectMember, Role, Department, ProjectInvitation
 from .paginators import PublicProjectPagination
-from .permissions import HasProjectPermissionsOrReadOnlyForMember
+from .permissions import ProjectAccessPermission
 from .renderers import (
     ProjectListRenderer,
     ProjectMemberListRenderer,
@@ -26,7 +26,9 @@ from .serializers import (
     AddDepartmentSerializer,
     RoleSerializer,
     CreateRoleSerializer,
-    UpdateRoleSerializer, InviteUserToProjectSerializer, ProjectInvitationSerializer
+    UpdateRoleSerializer,
+    InviteUserToProjectSerializer,
+    ProjectInvitationSerializer
 )
 
 User = get_user_model()
@@ -34,7 +36,7 @@ User = get_user_model()
 
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
-    permission_classes = [permissions.IsAuthenticated, HasProjectPermissionsOrReadOnlyForMember]
+    permission_classes = [permissions.IsAuthenticated, ProjectAccessPermission]
     renderer_classes = [ProjectListRenderer]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = ProjectFilter
@@ -55,7 +57,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = serializer.save(owner=self.request.user)
         ProjectMember.objects.create(project=project, user=self.request.user)
 
-    @action(methods=['get'], detail=False, pagination_class=PublicProjectPagination)
+    @action(
+        methods=['get'],
+        detail=False,
+        pagination_class=PublicProjectPagination,
+        permission_classes=[permissions.IsAuthenticated]
+    )
     def public(self, request, *args, **kwargs):
         cache_key = PUBLIC_PROJECTS_CACHE_KEY.format(urlencode=request.GET.urlencode())
         cached_data = cache.get(cache_key)
@@ -79,12 +86,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
             )
 
         membership = ProjectMember.objects.filter(project=project, user=user).first()
-        if not membership:
-            return Response(
-                {"detail": "You are not a member of this project."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         membership.delete()
         return Response({"detail": "You have left the project."}, status=status.HTTP_200_OK)
 
@@ -116,15 +117,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 
 class ProjectBasedViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, ProjectAccessPermission]
 
     def get_project(self):
         project_id = self.kwargs.get('project_pk')
         project = get_object_or_404(Project, pk=project_id)
 
-        if not (project.owner == self.request.user or
-                project.members.filter(user=self.request.user).exists()):
-            raise PermissionDenied("You don't have permission to access this project.")
         return project
 
     def get_serializer_context(self):
