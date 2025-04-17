@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Project, ProjectMember, Department, DepartmentMember, Role
+from .models import Project, ProjectMember, Department, DepartmentMember, Role, ProjectInvitation
 from .validators import validate_hex_color
 
 User = get_user_model()
@@ -26,46 +26,52 @@ class ProjectMemberSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ProjectMember
-        fields = ['user', 'date_joined', 'project_id']
-        read_only_fields = ['date_joined']
+        fields = ['user', 'date_joined', 'project']
+        read_only_fields = ['date_joined', 'project']
 
 
-class AddProjectMemberSerializer(serializers.ModelSerializer):
-    user_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(),
-        source='user',
-        write_only=True
-    )
+class ProjectInvitationSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
 
     class Meta:
-        model = ProjectMember
-        fields = ['user_id']
+        model = ProjectInvitation
+        fields = ['id', 'project', 'user', 'invited_by', 'date_created']
+        read_only_fields = ['project', 'invited_by', 'date_created']
+
+
+class InviteUserToProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProjectInvitation
+        fields = ['id', 'project', 'user', 'invited_by', 'date_created']
+        read_only_fields = ['project', 'invited_by', 'date_created']
 
     def validate(self, data):
+        data = super().validate(data)
         project = self.context['project']
         user = data['user']
 
-        if project.members.filter(user=user).exists():
+        if ProjectMember.objects.filter(project=project, user=user).exists():
             raise serializers.ValidationError(
-                {'user_id': 'User is already a member of this project.'},
+                {'user': 'User is already a project member.'},
                 code='already_member'
+            )
+
+        if ProjectInvitation.objects.filter(project=project, user=user).exists():
+            raise serializers.ValidationError(
+                {'user': 'Invitation for this user already exists.'},
+                code='duplicate_invitation'
             )
 
         return data
 
 
-class UpdateProjectMemberSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProjectMember
-        fields = []
-
-
 class DepartmentMemberSerializer(serializers.ModelSerializer):
-    user = UserSerializer()
+    user = UserSerializer(read_only=True)
 
     class Meta:
         model = DepartmentMember
         fields = ['user', 'date_joined']
+        read_only_fields = ['date_joined']
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
@@ -81,14 +87,13 @@ class AddDepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
         fields = ['title', 'description']
-        read_only_fields = ['project']
 
     def validate(self, data):
         project = self.context['project']
-        if project.departments.filter(title=data['title']).exists():
+        if Department.objects.filter(project=project, title=data['title']).exists():
             raise serializers.ValidationError(
-                {"detail": f"Department with title <{data['title']}> is already exists."},
-                code='already_exists'
+                {'title': 'Department with this title already exists.'},
+                code='duplicate_department'
             )
         return data
 
@@ -103,7 +108,7 @@ class RoleSerializer(serializers.ModelSerializer):
 class CreateRoleSerializer(serializers.ModelSerializer):
     color = serializers.CharField(
         validators=[validate_hex_color],
-        help_text="HEX-color in <#RRGGBB> format (example: #FF5733)",
+        help_text='HEX color in #RRGGBB format (e.g. #FF5733)',
         required=False
     )
 
@@ -112,12 +117,13 @@ class CreateRoleSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'color', 'department', 'rank']
 
     def validate(self, data):
-        project = self.context.get('project')
-        department = data.get('department')
+        data = super().validate(data)
+        project = self.context['project']
 
-        if department and department.project != project:
+        if 'department' in data and data['department'].project != project:
             raise serializers.ValidationError(
-                "Department does not belong to this project."
+                {'department': 'Department does not belong to this project.'},
+                code='invalid_department'
             )
 
         return data
@@ -126,24 +132,23 @@ class CreateRoleSerializer(serializers.ModelSerializer):
 class UpdateRoleSerializer(serializers.ModelSerializer):
     color = serializers.CharField(
         validators=[validate_hex_color],
-        required=False,
-        help_text="HEX-color in <#RRGGBB> format (example: #FF5733)"
+        help_text='HEX color in #RRGGBB format (e.g. #FF5733)',
+        required=False
     )
 
     class Meta:
         model = Role
-        fields = ['id', 'name', 'color', 'department', 'rank']
+        fields = ['name', 'color', 'department', 'rank']
         extra_kwargs = {
             'name': {'required': False},
-            'color': {'required': False},
             'department': {'required': False},
             'rank': {'required': False},
         }
 
     def validate_department(self, value):
-        project = self.context.get('project')
-        if value and value.project != project:
+        if value and value.project != self.context['project']:
             raise serializers.ValidationError(
-                "Department does not belong to this project."
+                {'department' : 'Department does not belong to this project.'},
+                code='invalid_department'
             )
         return value

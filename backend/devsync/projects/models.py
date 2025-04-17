@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+
 from config.fields import WEBPField
 
 User = get_user_model()
@@ -38,6 +39,29 @@ class ProjectMember(models.Model):
 
     def __str__(self):
         return f'{self.user} - {self.project}'
+
+
+class ProjectInvitation(models.Model):
+    project = models.ForeignKey(Project, related_name='invitations', on_delete=models.CASCADE)
+    user = models.ForeignKey(User,related_name='project_invitations',on_delete=models.CASCADE, null=True, blank=True)
+    invited_by = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['project', 'user'],
+                name='unique_project_user_invitation'
+            ),
+        ]
+        ordering = ['-date_created']
+
+    def accept(self) -> None:
+        ProjectMember.objects.get_or_create(project=self.project, user=self.user)
+        self.delete()
+
+    def __str__(self):
+        return f'Invitation to {self.project} for {self.user}'
 
 
 class Department(models.Model):

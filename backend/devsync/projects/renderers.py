@@ -22,6 +22,10 @@ class ProjectMemberListRenderer(ListRenderer):
     wrapper_key = 'members'
 
 
+class ProjectInvitationListRenderer(ListRenderer):
+    wrapper_key = 'invitations'
+
+
 class DepartmentListRenderer(ListRenderer):
     wrapper_key = 'departments'
 

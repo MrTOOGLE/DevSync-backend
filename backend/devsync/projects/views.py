@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter
@@ -10,25 +10,23 @@ from rest_framework.response import Response
 
 from config.settings import PUBLIC_PROJECTS_CACHE_KEY
 from .filters import ProjectFilter
-from .models import Project, ProjectMember, Role, Department
+from .models import Project, ProjectMember, Role, Department, ProjectInvitation
 from .paginators import PublicProjectPagination
 from .permissions import HasProjectPermissionsOrReadOnlyForMember
 from .renderers import (
     ProjectListRenderer,
     ProjectMemberListRenderer,
     DepartmentListRenderer,
-    RoleListRenderer
+    RoleListRenderer, ProjectInvitationListRenderer
 )
 from .serializers import (
     ProjectSerializer,
     ProjectMemberSerializer,
-    AddProjectMemberSerializer,
-    UpdateProjectMemberSerializer,
     DepartmentSerializer,
     AddDepartmentSerializer,
     RoleSerializer,
     CreateRoleSerializer,
-    UpdateRoleSerializer
+    UpdateRoleSerializer, InviteUserToProjectSerializer, ProjectInvitationSerializer
 )
 
 User = get_user_model()
@@ -69,6 +67,53 @@ class ProjectViewSet(viewsets.ModelViewSet):
         cache.set(cache_key, response.data, timeout=15)
         return response
 
+    @action(methods=["post"], detail=True)
+    def leave(self, request, *args, **kwargs):
+        project = self.get_object()
+        user = request.user
+
+        if project.owner == user:
+            return Response(
+                {"detail": "Project owner cannot leave the project. Transfer ownership first."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        membership = ProjectMember.objects.filter(project=project, user=user).first()
+        if not membership:
+            return Response(
+                {"detail": "You are not a member of this project."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        membership.delete()
+        return Response({"detail": "You have left the project."}, status=status.HTTP_200_OK)
+
+    @action(methods=["post"], detail=True)
+    def join(self, request, *args, **kwargs):
+        project = self.get_object()
+        user = request.user
+
+        if ProjectMember.objects.filter(project=project, user=user).exists():
+            return Response(
+                {"detail": "You are already a member of this project."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        invitation = ProjectInvitation.objects.filter(project=project, user=user).first()
+
+        if not invitation:
+            return Response(
+                {"detail": "No active invitation found to join this project."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        invitation.accept()
+
+        return Response(
+            {"success": True},
+            status=status.HTTP_201_CREATED
+        )
+
 
 class ProjectBasedViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
@@ -89,24 +134,54 @@ class ProjectBasedViewSet(viewsets.ModelViewSet):
 
 
 class ProjectMemberViewSet(ProjectBasedViewSet):
+    http_method_names = ['get', 'delete', 'head', 'options']
     lookup_field = 'user_id'
     lookup_url_kwarg = 'pk'
     renderer_classes = [ProjectMemberListRenderer]
+    serializer_class = ProjectMemberSerializer
 
     def get_queryset(self):
         return ProjectMember.objects.filter(
             project_id=self.kwargs['project_pk']
         ).select_related('user')
 
+    def perform_destroy(self, instance):
+        project = self.get_project()
+
+        if project.owner_id == instance.user_id:
+            raise PermissionDenied(
+                {"detail": "Cannot remove project owner from members. Transfer ownership first."},
+                code='protected_owner'
+            )
+
+        if self.request.user.id == instance.user_id:
+            raise PermissionDenied(
+                {"detail": "Use the 'leave' action instead of direct deletion."},
+                code='use_leave_action'
+            )
+
+        super().perform_destroy(instance)
+
+
+class ProjectInvitationViewSet(ProjectBasedViewSet):
+    renderer_classes = [ProjectInvitationListRenderer]
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    def get_queryset(self):
+        return ProjectInvitation.objects.filter(
+            project_id=self.kwargs['project_pk']
+        )
+
     def get_serializer_class(self):
-        if self.action == 'create':
-            return AddProjectMemberSerializer
-        if self.action in ['update', 'partial_update']:
-            return UpdateProjectMemberSerializer
-        return ProjectMemberSerializer
+        return InviteUserToProjectSerializer if self.action == 'create' else ProjectInvitationSerializer
 
     def perform_create(self, serializer):
-        serializer.save(project=self.get_project())
+        serializer.save(project=self.get_project(), invited_by=self.request.user)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['user'] = self.request.user
+        return context
 
 
 class DepartmentViewSet(ProjectBasedViewSet):
