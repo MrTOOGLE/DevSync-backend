@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'djoser',
+    'django_filters',
 
     'users',
     'api',
@@ -174,7 +175,8 @@ CACHES = {
         },
     }
 }
-VERIFICATION_CODE_CACHE_NAME = "code_{username}"
+VERIFICATION_CODE_CACHE_KEY = "code:{username}"
+PUBLIC_PROJECTS_CACHE_KEY = 'public_projects:{urlencode}'
 
 # logging
 LOGGING = {

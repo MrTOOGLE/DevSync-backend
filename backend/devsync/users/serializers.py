@@ -24,7 +24,7 @@ class SendVerificationCodeSerializer(serializers.Serializer):
 
     def save(self):
         email = self.validated_data['email']
-        code_cache_name = settings.VERIFICATION_CODE_CACHE_NAME.format(username=email)
+        code_cache_name = settings.VERIFICATION_CODE_CACHE_KEY.format(username=email)
         cached_code = cache.get(code_cache_name)
 
         if not cached_code:
@@ -49,7 +49,7 @@ class ConfirmEmailSerializer(serializers.Serializer):
 
     def validate_code(self, value):
         email = self.initial_data.get('email')
-        code_cache_name = settings.VERIFICATION_CODE_CACHE_NAME.format(username=email)
+        code_cache_name = settings.VERIFICATION_CODE_CACHE_KEY.format(username=email)
         cached_code = cache.get(code_cache_name)
 
         if not cached_code:
@@ -65,7 +65,7 @@ class ConfirmEmailSerializer(serializers.Serializer):
         user = User.objects.get(email=email)
         user.verify_email()
 
-        code_cache_name = settings.VERIFICATION_CODE_CACHE_NAME.format(username=email)
+        code_cache_name = settings.VERIFICATION_CODE_CACHE_KEY.format(username=email)
         cache.delete(code_cache_name)
 
 

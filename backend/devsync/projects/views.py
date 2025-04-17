@@ -1,11 +1,24 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.core.cache import cache
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.filters import OrderingFilter
+from rest_framework.response import Response
 
+from config.settings import PUBLIC_PROJECTS_CACHE_KEY
+from .filters import ProjectFilter
 from .models import Project, ProjectMember, Role, Department
+from .paginators import PublicProjectPagination
 from .permissions import HasProjectPermissionsOrReadOnlyForMember
+from .renderers import (
+    ProjectListRenderer,
+    ProjectMemberListRenderer,
+    DepartmentListRenderer,
+    RoleListRenderer
+)
 from .serializers import (
     ProjectSerializer,
     ProjectMemberSerializer,
@@ -24,21 +37,37 @@ User = get_user_model()
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
     permission_classes = [permissions.IsAuthenticated, HasProjectPermissionsOrReadOnlyForMember]
+    renderer_classes = [ProjectListRenderer]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = ProjectFilter
+    ordering_fields = ('title', 'date_created', 'is_public')
 
     def get_queryset(self):
         if self.action == 'list':
             return (Project.objects.filter(
-                Q(owner=self.request.user) |
-                Q(members__user=self.request.user)
+                members__user=self.request.user
             )
-            .select_related("owner")
             .prefetch_related("members__user")
             .distinct())
+        elif self.action == 'public':
+            return Project.public_objects.all()
         return Project.objects.all()
 
     def perform_create(self, serializer):
         project = serializer.save(owner=self.request.user)
         ProjectMember.objects.create(project=project, user=self.request.user)
+
+    @action(methods=['get'], detail=False, pagination_class=PublicProjectPagination)
+    def public(self, request, *args, **kwargs):
+        cache_key = PUBLIC_PROJECTS_CACHE_KEY.format(urlencode=request.GET.urlencode())
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return Response(cached_data)
+
+        response = super().list(request)
+        cache.set(cache_key, response.data, timeout=15)
+        return response
 
 
 class ProjectBasedViewSet(viewsets.ModelViewSet):
@@ -62,6 +91,7 @@ class ProjectBasedViewSet(viewsets.ModelViewSet):
 class ProjectMemberViewSet(ProjectBasedViewSet):
     lookup_field = 'user_id'
     lookup_url_kwarg = 'pk'
+    renderer_classes = [ProjectMemberListRenderer]
 
     def get_queryset(self):
         return ProjectMember.objects.filter(
@@ -80,6 +110,8 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
 
 
 class DepartmentViewSet(ProjectBasedViewSet):
+    renderer_classes = [DepartmentListRenderer]
+
     def get_queryset(self):
         return Department.objects.filter(
             project_id=self.kwargs['project_pk']
@@ -93,6 +125,8 @@ class DepartmentViewSet(ProjectBasedViewSet):
 
 
 class RoleViewSet(ProjectBasedViewSet):
+    renderer_classes = [RoleListRenderer]
+
     def get_queryset(self):
         return Role.objects.filter(project_id=self.kwargs['project_pk'])
 
