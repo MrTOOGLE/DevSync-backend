@@ -1,6 +1,14 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Project, ProjectMember, Department, DepartmentMember, Role, ProjectInvitation, MemberRole
+from .models import (
+    Project,
+    ProjectMember,
+    Department,
+    DepartmentMember,
+    Role,
+    ProjectInvitation,
+    MemberRole
+)
 from .validators import validate_hex_color
 
 User = get_user_model()
