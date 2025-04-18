@@ -104,6 +104,14 @@ class Role(models.Model):
         return f'{self.name} (Project: {self.project.title}, Department: {self.department.title if self.department else "N/A"})'
 
 
+class MemberRole(models.Model):
+    role = models.ForeignKey(Role, related_name='members', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.user} - {self.role}'
+
+
 class RolePermissions(models.Model):
     role = models.OneToOneField(Role, related_name='permissions', on_delete=models.CASCADE)
     all_permissions = models.BooleanField(default=False)

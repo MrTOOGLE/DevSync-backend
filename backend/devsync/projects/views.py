@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from config.settings import PUBLIC_PROJECTS_CACHE_KEY
 from users.serializers import UserSerializer
 from .filters import ProjectFilter
-from .models import Project, ProjectMember, Role, Department, ProjectInvitation
+from .models import Project, ProjectMember, Role, Department, ProjectInvitation, MemberRole
 from .paginators import PublicProjectPagination
 from .permissions import ProjectAccessPermission
 from .renderers import (
@@ -29,7 +29,7 @@ from .serializers import (
     RoleSerializer,
     RoleWriteSerializer,
     InviteUserToProjectSerializer,
-    ProjectInvitationSerializer, ProjectOwnerSerializer
+    ProjectInvitationSerializer, ProjectOwnerSerializer, ChangeMemberRoleSerializer, MemberRoleSerializer
 )
 
 User = get_user_model()
@@ -154,11 +154,17 @@ class ProjectBasedViewSet(viewsets.ModelViewSet):
 
 
 class ProjectMemberViewSet(ProjectBasedViewSet):
-    http_method_names = ['get', 'delete', 'head', 'options']
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
     lookup_field = 'user_id'
     lookup_url_kwarg = 'pk'
     renderer_classes = [ProjectMemberListRenderer]
     serializer_class = ProjectMemberSerializer
+
+    @property
+    def allowed_methods(self):
+        if self.action == 'role_detail':
+            self.http_method_names.append('POST')
+        return super().allowed_methods
 
     def get_queryset(self):
         return ProjectMember.objects.filter(
@@ -181,6 +187,60 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
             )
 
         super().perform_destroy(instance)
+
+    @action(methods=['get'], detail=True)
+    def roles(self, request, project_pk=None, pk=None):
+        member = self.get_object()
+        project = self.get_project()
+
+        roles = MemberRole.objects.filter(
+            user=member.user,
+            role__project=project
+        ).select_related('role')
+        serializer = MemberRoleSerializer(roles, many=True)
+        return Response(
+            {"roles": serializer.data},
+            status=status.HTTP_200_OK
+        )
+
+
+    @action(methods=['post', 'delete'], detail=True, url_path='roles/(?P<role_pk>[0-9]+)')
+    def role_detail(self, request, project_pk=None, pk=None, role_pk=None):
+        role_pk = int(role_pk)
+
+        member = self.get_object()
+        project = self.get_project()
+
+        context = {
+            'member': member,
+            'project': project,
+            'request': request
+        }
+        if request.method == 'POST':
+            serializer = ChangeMemberRoleSerializer(
+                data={'role_id': role_pk},
+                context=context
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            return Response(
+                {"detail": "Role assigned successfully"},
+                status=status.HTTP_201_CREATED
+            )
+        elif request.method == 'DELETE':
+            serializer = ChangeMemberRoleSerializer(
+                data={'role_id': role_pk},
+                context=context
+            )
+            serializer.is_valid(raise_exception=True)
+
+            MemberRole.objects.filter(
+                user=member.user,
+                role=role_pk
+            ).delete()
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProjectInvitationViewSet(ProjectBasedViewSet):

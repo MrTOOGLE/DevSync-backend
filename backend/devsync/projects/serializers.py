@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Project, ProjectMember, Department, DepartmentMember, Role, ProjectInvitation
+from .models import Project, ProjectMember, Department, DepartmentMember, Role, ProjectInvitation, MemberRole
 from .validators import validate_hex_color
 
 User = get_user_model()
@@ -169,3 +169,64 @@ class RoleWriteSerializer(serializers.ModelSerializer):
                 code='invalid_department'
             )
         return data
+
+
+class MemberRoleSerializer(serializers.ModelSerializer):
+    role = RoleSerializer()
+
+    class Meta:
+        model = MemberRole
+        fields = ['id', 'role', 'user']
+        read_only_fields = ['id', 'user']
+
+
+class ChangeMemberRoleSerializer(serializers.ModelSerializer):
+    role_id = serializers.IntegerField(write_only=True, required=True)
+
+    class Meta:
+        model = MemberRole
+        fields = ['role_id']
+
+    def validate_role_id(self, value):
+        project = self.context.get('project')
+        try:
+            role = Role.objects.get(id=value, project=project)
+        except Role.DoesNotExist:
+            raise serializers.ValidationError(
+                "Role not found in this project",
+                code='role_not_found'
+            )
+        return role
+
+    def validate(self, data):
+        member = self.context.get('member')
+        project = self.context.get('project')
+        request = self.context.get('request')
+
+        if member.user == project.owner and request.user != project.owner:
+            raise serializers.ValidationError(
+                "Cannot modify roles of project owner",
+                code='protected_owner_roles'
+            )
+
+        if request.method == 'POST':
+            if MemberRole.objects.filter(user=member.user, role=data['role_id']).exists():
+                raise serializers.ValidationError(
+                    {"role_id": "This role is already assigned to the user"},
+                    code='role_already_assigned'
+                )
+
+        elif request.method == 'DELETE':
+            if not MemberRole.objects.filter(user=member.user, role=data['role_id']).exists():
+                raise serializers.ValidationError(
+                    {"role_id": "This role is not assigned to the user"},
+                    code='role_not_assigned'
+                )
+
+        return data
+
+    def create(self, validated_data):
+        return MemberRole.objects.create(
+            user=self.context['member'].user,
+            role=validated_data['role_id']
+        )
