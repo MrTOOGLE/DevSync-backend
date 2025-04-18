@@ -52,6 +52,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
     filterset_class = ProjectFilter
     ordering_fields = ('title', 'date_created', 'is_public')
 
+    def get_permissions(self):
+        if self.action == 'list':
+            self.permission_classes = [permissions.IsAuthenticated]
+        return super().get_permissions()
+
     def get_queryset(self):
         if self.action == 'list':
             return (Project.objects.filter(
