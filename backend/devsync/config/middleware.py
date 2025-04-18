@@ -1,11 +1,11 @@
 import json
 import logging
 import time
-
+from django.db import connection
 from django.http import JsonResponse, HttpRequest
 
 from . import settings
-from .utils.requests import get_request_info, get_response_info, get_error_info
+from .utils.requests import get_request_info, get_response_info, get_error_info, get_queries_info
 from .utils.utils import apply_sensitive_filter
 
 logger = logging.getLogger('requests')
@@ -31,6 +31,8 @@ class RequestLoggingMiddleware:
     def __call__(self, request: HttpRequest):
         start_time = time.perf_counter()
 
+        connection.queries_log.clear()
+
         try:
             response = self.get_response(request)
         except Exception as e:
@@ -52,7 +54,8 @@ class RequestLoggingMiddleware:
             msg=self._get_log_message(response.status_code),
             extra={
                 'request': json.dumps(request_info, ensure_ascii=False),
-                'response': json.dumps(response_info, ensure_ascii=False)
+                'response': json.dumps(response_info, ensure_ascii=False),
+                'sql': json.dumps(get_queries_info(), ensure_ascii=False)
             }
         )
 
