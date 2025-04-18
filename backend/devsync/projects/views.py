@@ -9,6 +9,7 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 
 from config.settings import PUBLIC_PROJECTS_CACHE_KEY
+from users.serializers import UserSerializer
 from .filters import ProjectFilter
 from .models import Project, ProjectMember, Role, Department, ProjectInvitation
 from .paginators import PublicProjectPagination
@@ -17,7 +18,8 @@ from .renderers import (
     ProjectListRenderer,
     ProjectMemberListRenderer,
     DepartmentListRenderer,
-    RoleListRenderer, ProjectInvitationListRenderer
+    RoleListRenderer,
+    ProjectInvitationListRenderer
 )
 from .serializers import (
     ProjectSerializer,
@@ -25,10 +27,9 @@ from .serializers import (
     DepartmentSerializer,
     AddDepartmentSerializer,
     RoleSerializer,
-    CreateRoleSerializer,
-    UpdateRoleSerializer,
+    RoleWriteSerializer,
     InviteUserToProjectSerializer,
-    ProjectInvitationSerializer
+    ProjectInvitationSerializer, ProjectOwnerSerializer
 )
 
 User = get_user_model()
@@ -114,6 +115,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
             {"success": True},
             status=status.HTTP_201_CREATED
         )
+
+    @action(methods=['get', 'put'], detail=True)
+    def owner(self, request, *args, **kwargs):
+        project = self.get_object()
+        if request.method == "GET":
+            owner = UserSerializer(project.owner)
+            return Response({"owner": owner.data}, status=status.HTTP_200_OK)
+        elif request.method == "PUT":
+            serializer = ProjectOwnerSerializer(
+                project,
+                data=request.data,
+                context={'request': request}
+            )
+
+            serializer.is_valid(raise_exception=True)
+            project = serializer.save()
+
+            return Response(
+                UserSerializer(project.owner).data,
+                status=status.HTTP_200_OK
+            )
 
 
 class ProjectBasedViewSet(viewsets.ModelViewSet):
@@ -204,10 +226,8 @@ class RoleViewSet(ProjectBasedViewSet):
         return Role.objects.filter(project_id=self.kwargs['project_pk'])
 
     def get_serializer_class(self):
-        if self.action == 'create':
-            return CreateRoleSerializer
-        if self.action in ['update', 'partial_update']:
-            return UpdateRoleSerializer
+        if self.action in ['create', 'update', 'partial_update']:
+            return RoleWriteSerializer
         return RoleSerializer
 
     def perform_create(self, serializer):

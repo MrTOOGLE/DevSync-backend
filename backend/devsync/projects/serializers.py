@@ -21,6 +21,44 @@ class ProjectSerializer(serializers.ModelSerializer):
         read_only_fields = ['date_created', 'owner']
 
 
+class ProjectOwnerSerializer(serializers.ModelSerializer):
+    new_owner_id = serializers.IntegerField(write_only=True, required=True)
+    owner = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Project
+        fields = ['owner', 'new_owner_id']
+        read_only_fields = ['owner']
+
+    def validate_new_owner_id(self, value):
+        try:
+            user = User.objects.get(id=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("User not found.")
+
+        if not ProjectMember.objects.filter(project=self.instance, user=user).exists():
+            raise serializers.ValidationError(
+                {"detail" : "New owner must be a member of the project."},
+                code='not_a_member'
+            )
+
+        return user
+
+    def update(self, instance, validated_data):
+        new_owner = validated_data['new_owner_id']
+
+        if instance.owner != self.context['request'].user:
+            raise serializers.ValidationError(
+                {"detail": "Only project owner can transfer ownership."},
+                code="not_a_owner"
+            )
+
+        instance.owner = new_owner
+        instance.save()
+
+        return instance
+
+
 class ProjectMemberSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
 
@@ -105,7 +143,7 @@ class RoleSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'project']
 
 
-class CreateRoleSerializer(serializers.ModelSerializer):
+class RoleWriteSerializer(serializers.ModelSerializer):
     color = serializers.CharField(
         validators=[validate_hex_color],
         help_text='HEX color in #RRGGBB format (e.g. #FF5733)',
@@ -115,40 +153,19 @@ class CreateRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Role
         fields = ['id', 'name', 'color', 'department', 'rank']
-
-    def validate(self, data):
-        data = super().validate(data)
-        project = self.context['project']
-
-        if 'department' in data and data['department'].project != project:
-            raise serializers.ValidationError(
-                {'department': 'Department does not belong to this project.'},
-                code='invalid_department'
-            )
-
-        return data
-
-
-class UpdateRoleSerializer(serializers.ModelSerializer):
-    color = serializers.CharField(
-        validators=[validate_hex_color],
-        help_text='HEX color in #RRGGBB format (e.g. #FF5733)',
-        required=False
-    )
-
-    class Meta:
-        model = Role
-        fields = ['name', 'color', 'department', 'rank']
         extra_kwargs = {
             'name': {'required': False},
             'department': {'required': False},
             'rank': {'required': False},
         }
 
-    def validate_department(self, value):
-        if value and value.project != self.context['project']:
+    def validate(self, data):
+        data = super().validate(data)
+        project = self.context.get('project')
+
+        if project and 'department' in data and data['department'].project != project:
             raise serializers.ValidationError(
-                {'department' : 'Department does not belong to this project.'},
+                {'department': 'Department does not belong to this project.'},
                 code='invalid_department'
             )
-        return value
+        return data
