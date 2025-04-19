@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, ProjectMember, Department, DepartmentMember, Role, RolePermissions
+from .models import Project, ProjectMember, Department, MemberDepartment, Role, RolePermissions
 
 
 @admin.register(Project)
@@ -27,7 +27,7 @@ class DepartmentAdmin(admin.ModelAdmin):
     save_on_top = True
 
 
-@admin.register(DepartmentMember)
+@admin.register(MemberDepartment)
 class DepartmentMemberAdmin(admin.ModelAdmin):
     list_display = ("department", "user", "date_joined")
     search_fields = ["department__title", "user__email"]

@@ -14,9 +14,10 @@ from .filters import ProjectFilter
 from .models import (
     Project,
     ProjectMember,
-    Role, Department,
+    Role,
+    Department,
     ProjectInvitation,
-    MemberRole
+    MemberRole, MemberDepartment
 )
 from .paginators import PublicProjectPagination
 from .permissions import ProjectAccessPermission
@@ -31,14 +32,14 @@ from .serializers import (
     ProjectSerializer,
     ProjectMemberSerializer,
     DepartmentSerializer,
-    AddDepartmentSerializer,
+    DepartmentWriteSerializer,
     RoleSerializer,
     RoleWriteSerializer,
-    InviteUserToProjectSerializer,
+    ProjectInvitationCreateSerializer,
     ProjectInvitationSerializer,
     ProjectOwnerSerializer,
     ChangeMemberRoleSerializer,
-    MemberRoleSerializer
+    ChangeMemberDepartmentSerializer
 )
 
 User = get_user_model()
@@ -53,7 +54,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     ordering_fields = ('title', 'date_created', 'is_public')
 
     def get_permissions(self):
-        if self.action == 'list':
+        if self.action in ['list', 'create']:
             self.permission_classes = [permissions.IsAuthenticated]
         return super().get_permissions()
 
@@ -102,9 +103,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
         membership = ProjectMember.objects.filter(project=project, user=user).first()
         membership.delete()
-        return Response({"detail": "You have left the project."}, status=status.HTTP_200_OK)
+        return Response(
+            {"success": True},
+            status=status.HTTP_200_OK
+        )
 
-    @action(methods=["post"], detail=True)
+    @action(methods=["post"], detail=True, permission_classes=[permissions.IsAuthenticated])
     def join(self, request, *args, **kwargs):
         project = self.get_object()
         user = request.user
@@ -135,7 +139,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         project = self.get_object()
         if request.method == "GET":
             owner = UserSerializer(project.owner)
-            return Response({"owner": owner.data}, status=status.HTTP_200_OK)
+            return Response(owner.data, status=status.HTTP_200_OK)
         elif request.method == "PUT":
             serializer = ProjectOwnerSerializer(
                 project,
@@ -168,16 +172,16 @@ class ProjectBasedViewSet(viewsets.ModelViewSet):
 
 
 class ProjectMemberViewSet(ProjectBasedViewSet):
-    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+    http_method_names = ['get', 'delete', 'head', 'options']
     lookup_field = 'user_id'
-    lookup_url_kwarg = 'pk'
+    lookup_url_kwarg = 'member_pk'
     renderer_classes = [ProjectMemberListRenderer]
     serializer_class = ProjectMemberSerializer
 
     @property
     def allowed_methods(self):
-        if self.action == 'role_detail':
-            self.http_method_names.append('POST')
+        if self.action in ['role_detail', 'department_detail']:
+            self.http_method_names.append('post')
         return super().allowed_methods
 
     def get_queryset(self):
@@ -203,15 +207,14 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
         super().perform_destroy(instance)
 
     @action(methods=['get'], detail=True)
-    def roles(self, request, project_pk=None, pk=None):
+    def roles(self, request, project_pk=None, member_pk=None):
         member = self.get_object()
         project = self.get_project()
-
-        roles = MemberRole.objects.filter(
-            user=member.user,
-            role__project=project
-        ).select_related('role')
-        serializer = MemberRoleSerializer(roles, many=True)
+        roles = Role.objects.filter(
+            project=project,
+            members__user=member.user,
+        )
+        serializer = RoleSerializer(roles, many=True)
         return Response(
             {"roles": serializer.data},
             status=status.HTTP_200_OK
@@ -219,17 +222,11 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
 
 
     @action(methods=['post', 'delete'], detail=True, url_path='roles/(?P<role_pk>[0-9]+)')
-    def role_detail(self, request, project_pk=None, pk=None, role_pk=None):
+    def role_detail(self, request, project_pk=None, member_pk=None, role_pk=None):
         role_pk = int(role_pk)
+        context = self.get_serializer_context()
+        member = context['member']
 
-        member = self.get_object()
-        project = self.get_project()
-
-        context = {
-            'member': member,
-            'project': project,
-            'request': request
-        }
         if request.method == 'POST':
             serializer = ChangeMemberRoleSerializer(
                 data={'role_id': role_pk},
@@ -239,7 +236,7 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
             serializer.save()
 
             return Response(
-                {"detail": "Role assigned successfully"},
+                {"success": True},
                 status=status.HTTP_201_CREATED
             )
         elif request.method == 'DELETE':
@@ -248,13 +245,61 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
                 context=context
             )
             serializer.is_valid(raise_exception=True)
-
-            MemberRole.objects.filter(
-                user=member.user,
-                role=role_pk
-            ).delete()
+            MemberRole.objects.filter(user=member.user, role=role_pk).delete()
 
             return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(methods=['get'], detail=True)
+    def departments(self, request, project_pk=None, member_pk=None):
+        member = self.get_object()
+        project = self.get_project()
+
+        departments = Department.objects.filter(
+            project=project,
+            members__user=member.user,
+        )
+        serializer = DepartmentSerializer(departments, many=True)
+        return Response(
+            {"departments": serializer.data},
+            status=status.HTTP_200_OK
+        )
+
+    @action(methods=['post', 'delete'], detail=True, url_path='departments/(?P<department_pk>[0-9]+)')
+    def department_detail(self, request, project_pk=None, member_pk=None, department_pk=None):
+        department_pk = int(department_pk)
+        context = self.get_serializer_context()
+        member = context['member']
+
+        if request.method == 'POST':
+            serializer = ChangeMemberDepartmentSerializer(
+                data={'department_id': department_pk},
+                context=context
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            return Response(
+                {"success": True},
+                status=status.HTTP_201_CREATED
+            )
+        elif request.method == 'DELETE':
+            serializer = ChangeMemberDepartmentSerializer(
+                data={'department_id': department_pk},
+                context=context
+            )
+            serializer.is_valid(raise_exception=True)
+            MemberDepartment.objects.filter(user=member.user, department=department_pk).delete()
+
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action in ['role_detail', 'department_detail']:
+            context.update({
+                'request': self.request,
+                'member': self.get_object(),
+            })
+        return context
 
 
 class ProjectInvitationViewSet(ProjectBasedViewSet):
@@ -267,7 +312,9 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
         )
 
     def get_serializer_class(self):
-        return InviteUserToProjectSerializer if self.action == 'create' else ProjectInvitationSerializer
+        if self.action == 'create':
+            return ProjectInvitationCreateSerializer
+        return ProjectInvitationSerializer
 
     def perform_create(self, serializer):
         serializer.save(project=self.get_project(), invited_by=self.request.user)
@@ -280,6 +327,7 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
 
 class DepartmentViewSet(ProjectBasedViewSet):
     renderer_classes = [DepartmentListRenderer]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
         return Department.objects.filter(
@@ -287,7 +335,9 @@ class DepartmentViewSet(ProjectBasedViewSet):
         ).prefetch_related('members__user')
 
     def get_serializer_class(self):
-        return AddDepartmentSerializer if self.action == 'create' else DepartmentSerializer
+        if self.request.method in ['POST', 'PATCH']:
+            return DepartmentWriteSerializer
+        return DepartmentSerializer
 
     def perform_create(self, serializer):
         serializer.save(project=self.get_project())
@@ -295,12 +345,15 @@ class DepartmentViewSet(ProjectBasedViewSet):
 
 class RoleViewSet(ProjectBasedViewSet):
     renderer_classes = [RoleListRenderer]
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
-        return Role.objects.filter(project_id=self.kwargs['project_pk'])
+        return Role.objects.filter(
+            project_id=self.kwargs['project_pk']
+        ).select_related('department')
 
     def get_serializer_class(self):
-        if self.action in ['create', 'update', 'partial_update']:
+        if self.request.method in ['POST', 'PATCH']:
             return RoleWriteSerializer
         return RoleSerializer
 
