@@ -31,8 +31,7 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'api.apps.ApiConfig',
     'projects.apps.ProjectsConfig',
-    'voting.apps.VotingConfig',
-    #'notifications.apps.NotificationsConfig',
+    'voting.apps.VotingConfig'
 ]
 
 MIDDLEWARE = [
