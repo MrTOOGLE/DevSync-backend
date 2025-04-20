@@ -1,5 +1,6 @@
 import json
 
+from django.db import connection
 from django.http import HttpRequest, HttpResponse
 
 
@@ -137,3 +138,23 @@ def get_traceback(exception: Exception) -> str:
     ))
 
     return traceback_str
+
+def get_queries_info() -> dict:
+    """
+    Collect and return information about database queries made during the request.
+
+    Returns:
+        dict: A dictionary containing SQL query information:
+            - query_count: Total number of queries executed
+            - query_time: Total time spent on queries in seconds (as float)
+
+    Note:
+        Requires Django's database debug mode to be enabled (DEBUG=True).
+        Returns empty dict with empty values if no queries were recorded.
+    """
+    sql_queries = connection.queries
+    sql_info = {
+        'query_count': len(sql_queries),
+        'query_time': sum(float(q['time']) for q in sql_queries)
+    }
+    return sql_info

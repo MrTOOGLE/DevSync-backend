@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+
 from config.fields import WEBPField
 
 User = get_user_model()
@@ -40,6 +41,29 @@ class ProjectMember(models.Model):
         return f'{self.user} - {self.project}'
 
 
+class ProjectInvitation(models.Model):
+    project = models.ForeignKey(Project, related_name='invitations', on_delete=models.CASCADE)
+    user = models.ForeignKey(User,related_name='project_invitations',on_delete=models.CASCADE, null=True, blank=True)
+    invited_by = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
+    date_created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['project', 'user'],
+                name='unique_project_user_invitation'
+            ),
+        ]
+        ordering = ['-date_created']
+
+    def accept(self) -> None:
+        ProjectMember.objects.get_or_create(project=self.project, user=self.user)
+        self.delete()
+
+    def __str__(self):
+        return f'Invitation to {self.project} for {self.user}'
+
+
 class Department(models.Model):
     project = models.ForeignKey(Project, related_name='departments', on_delete=models.CASCADE)
     title = models.CharField(max_length=150)
@@ -55,7 +79,7 @@ class Department(models.Model):
         return f'{self.title} ({self.project})'
 
 
-class DepartmentMember(models.Model):
+class MemberDepartment(models.Model):
     department = models.ForeignKey(Department, related_name='members', on_delete=models.CASCADE)
     user = models.ForeignKey(User, related_name='department_memberships', on_delete=models.CASCADE)
     date_joined = models.DateTimeField(auto_now_add=True)
@@ -78,6 +102,14 @@ class Role(models.Model):
 
     def __str__(self):
         return f'{self.name} (Project: {self.project.title}, Department: {self.department.title if self.department else "N/A"})'
+
+
+class MemberRole(models.Model):
+    role = models.ForeignKey(Role, related_name='members', on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f'{self.user} - {self.role}'
 
 
 class RolePermissions(models.Model):

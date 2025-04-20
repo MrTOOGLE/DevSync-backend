@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'djoser',
+    'django_filters',
 
     'users',
     'api',
@@ -174,7 +175,8 @@ CACHES = {
         },
     }
 }
-VERIFICATION_CODE_CACHE_NAME = "code_{username}"
+VERIFICATION_CODE_CACHE_KEY = "code:{username}"
+PUBLIC_PROJECTS_CACHE_KEY = 'public_projects:{urlencode}'
 
 # logging
 LOGGING = {
@@ -228,30 +230,30 @@ LOGGING = {
 
         'file': {
             'level': 'INFO',
-            'class': 'config.logging_handlers.DailyDirectoryFileHandler',
-            'filename': 'logs/server.log',
-            'when': 'midnight',
-            'backupCount': 7,
+            'class': 'config.logging_handlers.DailyRotatingFileHandler',
+            'filename': 'server.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
             'formatter': 'verbose',
             'encoding': 'utf-8',
         },
 
         'file_request': {
             'level': 'INFO',
-            'class': 'config.logging_handlers.DailyDirectoryFileHandler',
-            'filename': 'logs/requests.log',
-            'when': 'midnight',
-            'backupCount': 7,
+            'class': 'config.logging_handlers.DailyRotatingFileHandler',
+            'filename': 'requests.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
             'formatter': 'json',
             'encoding': 'utf-8',
         },
 
         'sql': {
             'level': 'DEBUG',
-            'class': 'config.logging_handlers.DailyDirectoryFileHandler',
-            'filename': 'logs/sql.log',
-            'when': 'midnight',
-            'backupCount': 7,
+            'class': 'config.logging_handlers.DailyRotatingFileHandler',
+            'filename': 'sql.log',
+            'maxBytes': 10 * 1024 * 1024,
+            'backupCount': 5,
             'formatter': 'verbose',
             'encoding': 'utf-8',
             'filters': ['require_debug_true'],
