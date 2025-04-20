@@ -70,11 +70,6 @@ class Department(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     description = models.CharField(max_length=256, blank=True, default='')
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['project', 'title'], name='unique_project_department')
-        ]
-
     def __str__(self):
         return f'{self.title} ({self.project})'
 

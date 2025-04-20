@@ -43,13 +43,13 @@ class ProjectOwnerSerializer(serializers.ModelSerializer):
             user = User.objects.get(id=value)
         except User.DoesNotExist:
             raise serializers.ValidationError(
-                {"new_owner_id": "User not found."},
+                {"new_owner_id": "Пользователь не найдет."},
                 code='user_not_found',
             )
 
         if not ProjectMember.objects.filter(project=self.instance, user=user).exists():
             raise serializers.ValidationError(
-                {"detail" : "New owner must be a member of the project."},
+                {"new_owner_id" : "Пользователь должен быть участником проекта."},
                 code='not_a_member'
             )
 
@@ -60,7 +60,7 @@ class ProjectOwnerSerializer(serializers.ModelSerializer):
 
         if instance.owner != self.context['request'].user:
             raise serializers.ValidationError(
-                {"detail": "Only project owner can transfer ownership."},
+                {"detail": "Только владелец проекта может передать права владельца."},
                 code="not_a_owner"
             )
 
@@ -101,13 +101,13 @@ class ProjectInvitationCreateSerializer(serializers.ModelSerializer):
 
         if ProjectMember.objects.filter(project=project, user=user).exists():
             raise serializers.ValidationError(
-                {'user': 'User is already a project member.'},
+                {'user': 'Пользователь уже является участником проекта.'},
                 code='already_member'
             )
 
         if ProjectInvitation.objects.filter(project=project, user=user).exists():
             raise serializers.ValidationError(
-                {'user': 'Invitation for this user already exists.'},
+                {'user': 'Данный пользователь уже имеет приглашение.'},
                 code='duplicate_invitation'
             )
 
@@ -149,15 +149,6 @@ class DepartmentWriteSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ['id', 'date_created']
 
-    def validate_title(self, value):
-        project = self.context['project']
-        if Department.objects.filter(project=project, title__iexact=value).exists():
-            raise serializers.ValidationError(
-                {'title': 'Department with this title already exists.'},
-                code='duplicate_department'
-            )
-        return value.strip()
-
 
 class RoleSerializer(serializers.ModelSerializer):
     class Meta:
@@ -185,7 +176,7 @@ class RoleWriteSerializer(serializers.ModelSerializer):
         project = self.context.get('project')
         if value and value.project != project:
             raise serializers.ValidationError(
-                {'department': 'Department does not belong to this project.'},
+                {'department': 'Такого отдела нет в данном проекте.'},
                 code='invalid_department'
             )
         return value
@@ -195,6 +186,9 @@ class BaseChangeMemberRelationSerializer(serializers.ModelSerializer):
     relation_model = None
     relation_name = None
     member_relation_model = None
+    not_found_error_message = 'Данной сущности нет в этом проекте.'
+    already_exists_error_message = 'Эта сущность уже принадлежит данному пользователю.'
+    not_exists_error_message = 'Эта сущность не принадлежит данному пользователю.'
 
     class Meta:
         fields = []
@@ -212,7 +206,7 @@ class BaseChangeMemberRelationSerializer(serializers.ModelSerializer):
             )
         except self.relation_model.DoesNotExist:
             raise serializers.ValidationError(
-                {f"{self.relation_name}_id": f"{self.relation_name.capitalize()} not found in project"},
+                {f"{self.relation_name}_id": self.not_found_error_message},
                 code=f'{self.relation_name}_not_found'
             )
 
@@ -221,9 +215,10 @@ class BaseChangeMemberRelationSerializer(serializers.ModelSerializer):
             user=user,
             **{self.relation_name: relation}
         ).exists() != exists:
+            error_message = self.already_exists_error_message if not exists else self.not_exists_error_message
             error_key = "already" if not exists else "not"
             raise serializers.ValidationError(
-                {f"{self.relation_name}_id": f"This {self.relation_name} is {error_key} assigned to user."},
+                {f"{self.relation_name}_id": error_message},
                 code=f'{self.relation_name}_{error_key}_assigned'
             )
 
@@ -253,6 +248,9 @@ class ChangeMemberRoleSerializer(BaseChangeMemberRelationSerializer):
     relation_model = Role
     relation_name = 'role'
     member_relation_model = MemberRole
+    not_found_error_message = 'Данной роли не существует в этом проекте.'
+    already_exists_error_message = 'Эта роль уже принадлежит данному пользователю.'
+    not_exists_error_message = 'Эта роль не принадлежит данному пользователю.'
 
     class Meta(BaseChangeMemberRelationSerializer.Meta):
         model = MemberRole
@@ -262,6 +260,9 @@ class ChangeMemberDepartmentSerializer(BaseChangeMemberRelationSerializer):
     relation_model = Department
     relation_name = 'department'
     member_relation_model = MemberDepartment
+    not_found_error_message = 'Данного отдела не существует в этом проекте.'
+    already_exists_error_message = 'Этот отдел уже принадлежит данному пользователю.'
+    not_exists_error_message = 'Этот отдел не принадлежит данному пользователю.'
 
     class Meta(BaseChangeMemberRelationSerializer.Meta):
         model = MemberDepartment
