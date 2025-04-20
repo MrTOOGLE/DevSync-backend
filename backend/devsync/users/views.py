@@ -38,6 +38,7 @@ class ConfirmEmailAPIView(APIView):
 
 
 class UserViewSet(viewsets.ModelViewSet):
+    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = (IsAdminOrOwnerOrReadOnly,)
@@ -51,6 +52,7 @@ class UserViewSet(viewsets.ModelViewSet):
             self.permission_classes = (IsAuthenticated, IsAdminOrOwnerOrReadOnly)
         elif self.action == 'list':
             self.permission_classes = (IsAuthenticated, IsAdminOnly)
+
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -84,12 +86,10 @@ class UserViewSet(viewsets.ModelViewSet):
             return self.request.user
         return super().get_object()
 
-    @action(detail=False, methods=['get', 'put', 'patch', 'delete'])
+    @action(detail=False, methods=['get', 'patch', 'delete'])
     def me(self, request, *args, **kwargs):
         if request.method == 'GET':
             return self.retrieve(request, *args, **kwargs)
-        elif request.method == 'PUT':
-            return self.update(request, *args, **kwargs)
         elif request.method == 'PATCH':
             return self.partial_update(request, *args, **kwargs)
         elif request.method == 'DELETE':

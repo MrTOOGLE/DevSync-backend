@@ -13,9 +13,15 @@ def validate_email(value):
     try:
         user = User.objects.get(email=value)
         if user.is_email_verified:
-            raise ValidationError("Данный email уже подтвержден.")
+            raise ValidationError(
+                {"email" : "Данный email уже подтвержден."},
+                code="email_already_verified"
+            )
     except User.DoesNotExist:
-        raise ValidationError("Нет пользователя с таким email.")
+        raise ValidationError(
+            {"email": "Нет пользователя с таким email."},
+            code="no_user"
+        )
     return value
 
 
@@ -40,7 +46,10 @@ class SendVerificationCodeSerializer(serializers.Serializer):
                 user.email,
             )
         except User.DoesNotExist:
-            raise serializers.ValidationError("Нет пользователя с таким email.")
+            raise ValidationError(
+                {"email": "Нет пользователя с таким email."},
+                code="no_user"
+            )
 
 
 class ConfirmEmailSerializer(serializers.Serializer):
@@ -53,10 +62,16 @@ class ConfirmEmailSerializer(serializers.Serializer):
         cached_code = cache.get(code_cache_name)
 
         if not cached_code:
-            raise ValidationError("Недействительный код верификации.")
+            raise ValidationError(
+                {"code": "Недействительный код верификации."},
+                code="invalid_code"
+            )
 
         if cached_code != value:
-            raise ValidationError("Коды не совпадают.")
+            raise ValidationError(
+                {"code": "Недействительный код верификации."},
+                code="invalid_code"
+            )
 
         return value
 
@@ -75,7 +90,10 @@ class TokenCreateSerializer(BaseTokenCreateSerializer):
 
         user = self.user
         if not user.is_email_verified:
-            raise PermissionDenied("Email не подтвержден. Пожалуйста, подтвердите ваш email перед входом.")
+            raise PermissionDenied(
+                {"email": "Аккаунт не подтвержден. Пожалуйста, подтвердите ваш email перед входом."},
+                "email_is_not_verified"
+            )
 
         return data
 
@@ -85,8 +103,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'email', 'first_name', 'last_name', 'city', 'avatar')
         read_only_fields = ['id', 'email']
-
-    def validate_email(self, value):
-        if self.instance and self.instance.email != value:
-            raise serializers.ValidationError("Изменение email запрещено")
-        return value
+        extra_kwargs = {
+            "first_name": {"trim_whitespace": True},
+            "last_name": {"trim_whitespace": True},
+            "city": {"trim_whitespace": True},
+        }
