@@ -3,9 +3,10 @@ from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, permission_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from config.settings import PUBLIC_PROJECTS_CACHE_KEY
@@ -70,8 +71,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Project.objects.all()
 
     def perform_create(self, serializer):
-        project = serializer.save(owner=self.request.user)
-        ProjectMember.objects.create(project=project, user=self.request.user)
+        serializer.save(owner=self.request.user)
 
     @action(
         methods=['get'],
@@ -298,7 +298,7 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
         context['user'] = self.request.user
         return context
 
-    @action(methods=['post'], detail=False)
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated])
     def accept(self, request, project_pk=None):
         invitation = ProjectInvitation.objects.filter(
             project_id=project_pk,
@@ -318,7 +318,7 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
             status=status.HTTP_200_OK
         )
 
-    @action(methods=['post'], detail=False)
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated])
     def refuse(self, request, project_pk=None):
         invitation = ProjectInvitation.objects.filter(
             project_id=project_pk,

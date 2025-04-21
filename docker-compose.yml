@@ -45,6 +45,8 @@ services:
     build: ./backend/devsync/
     volumes:
       - ./backend/devsync:/backend
+      - static_volume:/backend/static
+      - media_volume:/backend/media
     env_file:
       - backend/devsync/.env
     depends_on:
@@ -58,6 +60,8 @@ services:
     build: ./backend/devsync/
     volumes:
       - ./backend/devsync:/backend
+      - static_volume:/backend/static
+      - media_volume:/backend/media
     env_file:
       - backend/devsync/.env
     depends_on:

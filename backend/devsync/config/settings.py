@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'djoser',
     'django_filters',
 
+    'notifications.apps.NotificationsConfig',
     'users.apps.UsersConfig',
     'api.apps.ApiConfig',
     'projects.apps.ProjectsConfig',

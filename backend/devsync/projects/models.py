@@ -1,6 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 from config.fields import WEBPField
 
@@ -131,3 +133,12 @@ class RolePermissions(models.Model):
 
     def __str__(self):
         return f"Permissions for {self.role.name} ({self.role.project})"
+
+
+@receiver(post_save, sender=Project)
+def add_owner_as_member(sender, instance, created, **kwargs):
+    if created:
+        ProjectMember.objects.get_or_create(
+            project=instance,
+            user=instance.owner
+        )
