@@ -11,7 +11,7 @@ class NotificationFactory:
         self._notification: Optional[Notification] = notification
 
     def create(self, user, related_object_id, **kwargs) -> Notification:
-        notification = Notification.objects.create(
+        notification = Notification(
             user=user,
             title=self._template.title,
             message=self._template.message,
@@ -26,7 +26,7 @@ class NotificationFactory:
             notification.actions_data = {
                 "actions": [asdict(action) for action in actions]
             }
-            notification.save()
+        notification.save()
 
         return notification
 
