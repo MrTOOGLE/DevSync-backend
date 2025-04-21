@@ -1,8 +1,11 @@
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.db import models
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
-
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 User = get_user_model()
 
@@ -27,5 +30,28 @@ class Notification(models.Model):
     def formatted_message(self):
         return self.message.format(**self.content_data, object=self.content_object)
 
+    def read(self):
+        self.is_read = True
+        self.save()
+
     def __str__(self):
         return f"<{self.title}> for {self.user}"
+
+
+@receiver(post_save, sender=Notification)
+def notification_updated(sender, instance, created, **kwargs):
+    from .serializers import NotificationSerializer
+
+    channel_layer = get_channel_layer()
+
+    async_to_sync(channel_layer.group_send)(
+        f'user_{instance.user.id}',
+        {
+            'type': 'send_notification',
+            'notification': {
+                'id': instance.id,
+                'type': 'UPDATE' if not created else 'CREATE',
+                'data': NotificationSerializer(instance).data
+            }
+        }
+    )

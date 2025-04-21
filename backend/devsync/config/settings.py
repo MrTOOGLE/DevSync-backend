@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'channels',
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
@@ -69,6 +70,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+ASGI_APPLICATION = 'config.asgi.application'
+
 
 DATABASES = {
     'default': {
@@ -309,4 +313,14 @@ LOGGING = {
 REQUEST_LOGGING = {
     "EXCLUDE_PATHS": [],
     "SENSITIVE_KEYS": ['password', 'token'],
+}
+
+# django channels
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [(REDIS_HOST, REDIS_PORT)],
+        },
+    },
 }
