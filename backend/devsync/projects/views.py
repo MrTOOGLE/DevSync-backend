@@ -3,7 +3,7 @@ from django.core.cache import cache
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action, permission_classes
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
@@ -40,7 +40,7 @@ from .serializers import (
     ProjectInvitationSerializer,
     ProjectOwnerSerializer,
     ChangeMemberRoleSerializer,
-    ChangeMemberDepartmentSerializer
+    ChangeMemberDepartmentSerializer, ProjectInvitationActionSerializer
 )
 
 User = get_user_model()
@@ -300,16 +300,12 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
 
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated])
     def accept(self, request, project_pk=None):
-        invitation = ProjectInvitation.objects.filter(
-            project_id=project_pk,
-            user=self.request.user,
-        ).first()
-
-        if not invitation:
-            return Response(
-                {"detail": "У вас нет приглашения в данный проект."},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        serializer = ProjectInvitationActionSerializer(
+            data=request.data,
+            context={'request': request, 'project_pk': project_pk}
+        )
+        serializer.is_valid(raise_exception=True)
+        invitation = serializer.validated_data['invitation']
 
         invitation.accept()
 
@@ -319,17 +315,14 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
         )
 
     @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated])
-    def refuse(self, request, project_pk=None):
-        invitation = ProjectInvitation.objects.filter(
-            project_id=project_pk,
-            user=self.request.user,
-        ).first()
+    def reject(self, request, project_pk=None):
+        serializer = ProjectInvitationActionSerializer(
+            data=request.data,
+            context={'request': request, 'project_pk': project_pk}
+        )
+        serializer.is_valid(raise_exception=True)
 
-        if not invitation:
-            return Response(
-                {"detail": "У вас нет приглашения в данный проект."},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        invitation = serializer.validated_data['invitation']
         invitation.delete()
         return Response(
             {"success": True},

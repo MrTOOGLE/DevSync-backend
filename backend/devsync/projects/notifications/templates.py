@@ -1,4 +1,5 @@
-from notifications.services.builders import register_templates
+from notifications.services.template_loading import JsonTemplateLoader
 
 
-register_templates("projects", "projects/notifications.json")
+loader = JsonTemplateLoader()
+loader.register_template_path("projects/notifications.json")

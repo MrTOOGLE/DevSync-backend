@@ -1,10 +1,14 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.timezone import now
 
 from config.fields import WEBPField
+from config.settings import PROJECT_INVITATION_EXPIRY_DAYS
 
 User = get_user_model()
 
@@ -57,6 +61,11 @@ class ProjectInvitation(models.Model):
             ),
         ]
         ordering = ['-date_created']
+
+    def is_expired(self):
+        if now() >= self.date_created + timedelta(seconds=PROJECT_INVITATION_EXPIRY_DAYS):
+            return True
+        return False
 
     def accept(self) -> None:
         ProjectMember.objects.get_or_create(project=self.project, user=self.user)

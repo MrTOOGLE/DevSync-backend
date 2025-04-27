@@ -1,50 +1,57 @@
 from notifications.models import Notification
 from rest_framework import serializers
 
-from notifications.services.factory import NotificationFactory
-
 
 class NotificationSerializer(serializers.ModelSerializer):
-    formatted_message = serializers.SerializerMethodField()
+    message = serializers.SerializerMethodField()
 
     class Meta:
         model = Notification
-        fields = ['id', 'title', 'formatted_message', 'created_at', 'is_read', 'actions_data']
+        fields = ['id', 'title', 'message', 'created_at', 'is_read', 'actions_data', 'footnote']
 
-    def get_formatted_message(self, obj):
+    def get_message(self, obj):
         return obj.formatted_message
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        if 'actions_data' in representation:
+            for action in representation['actions_data']:
+                if 'payload' in action:
+                    payload = action['payload']
+                    payload.pop('next_template', None)
+                    payload.pop('new_related_object_id', None)
+
+        return representation
 
 
 class NotificationActionSerializer(serializers.Serializer):
-    action_number = serializers.IntegerField(min_value=1)
+    action_number = serializers.IntegerField(min_value=1, max_value=100)
 
-    def validate(self, attrs):
-        notification = self.context['notification']
-        action_index = attrs['action_number'] - 1
-        actions = notification.actions_data.get('actions', [])
+    def validate_action_number(self, value):
+        notification = self.context.get('notification')
 
+        actions = getattr(notification, 'actions_data', [])
+        if not actions:
+            raise serializers.ValidationError(
+                {"actions": "У уведомления нет доступных действий"}
+            )
+
+        action_index = value - 1
         if action_index >= len(actions):
             raise serializers.ValidationError(
-                {"action_number": "Invalid action number"}
+                {"action_number": f"Уведомление не содержит действия с номером {value}. "
+                                  f"Доступные действия: 1-{len(actions)}"}
             )
 
-        action = actions[action_index]
-        attrs['action'] = action
+        return value
 
-        if 'new_related_object_id' in action['payload']:
-            content_object = notification.content_object
-            attrs['content_object_id'] = int(
-                action['payload']['new_related_object_id'].format(
-                    object=content_object
-                )
-            )
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        notification = self.context['notification']
+        actions = notification.actions_data
+        action_index = attrs['action_number'] - 1
+
+        attrs['action'] = actions[action_index]
 
         return attrs
-
-    def update_notification(self):
-        template = self.validated_data['action']['payload']['to_template']
-        related_object_id = self.validated_data['content_object_id']
-        notification = self.context['notification']
-        NotificationFactory(template, notification).update(
-            related_object_id=related_object_id
-        )

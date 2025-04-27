@@ -2,12 +2,13 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from notifications.models import Notification
 from notifications.renderers import NotificationRenderer
 from notifications.serializers import NotificationSerializer, NotificationActionSerializer
 from notifications.services.actions import NotificationAction
+from notifications.services.services import execute_url, update_notification_after_action, \
+    display_notification_action_error
 from users.permissions import IsAdminOnly
 
 
@@ -19,6 +20,11 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Notification.objects.filter(user=self.request.user)
+
+    def get_serializer_context(self):
+        return {
+            'request': self.request,
+        }
 
     @action(methods=['POST'], detail=False)
     def mark_as_read(self, request, *args, **kwargs):
@@ -55,15 +61,20 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notification = self.get_object()
         serializer = NotificationActionSerializer(
             data={'action_number': action_number},
-            context={'notification': notification}
+            context={
+                'notification': notification,
+                'request': request
+            }
         )
         serializer.is_valid(raise_exception=True)
-
-        action_data = serializer.validated_data['action']
-        payload = action_data['payload']
-
-        response = NotificationAction(**action_data).execute(request)
-
-        if response.status_code < 300 and 'to_template' in payload:
-            serializer.update_notification()
-        return Response(response.json(), status=response.status_code)
+        notification_action = NotificationAction(**serializer.validated_data['action'])
+        response = execute_url(
+            notification_action.payload['url'],
+            headers=request.headers
+        )
+        response_data = response.json()
+        if response.status_code < 400:
+            update_notification_after_action(notification_action, notification)
+        elif "detail" in response_data:
+            display_notification_action_error(notification, response_data['detail'])
+        return Response(response_data, status=response.status_code)

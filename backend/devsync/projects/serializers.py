@@ -114,6 +114,32 @@ class ProjectInvitationCreateSerializer(serializers.ModelSerializer):
         return data
 
 
+class ProjectInvitationActionSerializer(serializers.Serializer):
+    def validate(self, attrs):
+        request = self.context.get('request')
+        project_pk = self.context.get('project_pk')
+
+        invitation = ProjectInvitation.objects.filter(
+            project_id=project_pk,
+            user=request.user,
+        ).first()
+
+        if not invitation:
+            raise serializers.ValidationError(
+                {"detail": "У вас нет приглашения в данный проект."},
+                code="no_invitation"
+            )
+
+        if invitation.is_expired():
+            raise serializers.ValidationError(
+                {"detail": "Срок действия данного приглашения истек."},
+                code="expired_invitation"
+            )
+
+        attrs['invitation'] = invitation
+        return attrs
+
+
 class DepartmentMemberSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
 
