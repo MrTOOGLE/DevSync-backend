@@ -18,9 +18,7 @@ class NotificationFactory:
             actions_builder: Optional[NotificationActionsBuilder] = None
     ):
         self._template = template
-        self._notification: Optional[Notification] = None
         self._action_builder = actions_builder or TemplateActionsBuilder(template)
-
 
     def create(self, user: User, related_object_id: int, content_data: Optional[dict] = None, **kwargs) -> Notification:
         notification = Notification(

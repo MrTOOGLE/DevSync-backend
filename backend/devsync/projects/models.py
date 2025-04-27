@@ -63,7 +63,7 @@ class ProjectInvitation(models.Model):
         ordering = ['-date_created']
 
     def is_expired(self):
-        if now() >= self.date_created + timedelta(seconds=PROJECT_INVITATION_EXPIRY_DAYS):
+        if now() >= self.date_created + timedelta(days=PROJECT_INVITATION_EXPIRY_DAYS):
             return True
         return False
 
