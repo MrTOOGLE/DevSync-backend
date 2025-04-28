@@ -33,6 +33,6 @@ class TemplateSchema(BaseModel):
 
         model = apps.get_model(app_label, model_name)
         if model is None:
-            raise ValueError(f"Модель '{app_label}.{model_name}' не найдена")
+            raise ValueError(f"Model <'{app_label}.{model_name}'> is not found.")
 
         return v
