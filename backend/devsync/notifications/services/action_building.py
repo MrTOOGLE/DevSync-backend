@@ -4,7 +4,7 @@ from django.urls import reverse
 
 from notifications.models import Notification
 from notifications.services.actions import NotificationAction
-from notifications.services.templates import NotificationTemplate, NotificationTemplateAction
+from notifications.services.templates import NotificationTemplate, NotificationActionTemplate
 
 
 @runtime_checkable
@@ -22,7 +22,7 @@ class TemplateActionsBuilder:
         return [self._build_action(notification, action) for action in self.template.actions]
 
     @classmethod
-    def _build_action(cls, notification: Notification, action: NotificationTemplateAction) -> NotificationAction:
+    def _build_action(cls, notification: Notification, action: NotificationActionTemplate) -> NotificationAction:
         url = cls._build_url(notification, action) if action.viewname else None
         payload = cls._build_payload(notification, action, url)
 
@@ -34,7 +34,7 @@ class TemplateActionsBuilder:
         )
 
     @classmethod
-    def _build_url(cls, notification: Notification, action: NotificationTemplateAction) -> str:
+    def _build_url(cls, notification: Notification, action: NotificationActionTemplate) -> str:
         kwargs = {
             key: cls._format_value(notification, value)
             for key, value in action.viewname_kwargs.items()
@@ -47,7 +47,7 @@ class TemplateActionsBuilder:
         return int(formatted) if formatted.isdigit() else formatted
 
     @staticmethod
-    def _build_payload(notification: Notification, action: NotificationTemplateAction, url: str | None) -> dict:
+    def _build_payload(notification: Notification, action: NotificationActionTemplate, url: str | None) -> dict:
         payload: dict[str, Any] = {'url': url} if url else {}
         if action.next_template:
             payload['next_template'] = action.next_template

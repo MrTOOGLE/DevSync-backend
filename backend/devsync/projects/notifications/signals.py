@@ -5,12 +5,12 @@ from notifications.models import Notification
 from notifications.services.action_building import TemplateActionsBuilder
 from projects.models import ProjectInvitation
 from notifications.services.factories import NotificationFactory
-from projects.notifications.templates import loader
+from projects.notifications.loaders import json_loader
 
 
 @receiver(post_save, sender=ProjectInvitation)
 def send_invitation_notification(sender, instance, **kwargs):
-    template = loader.get_template('invitation')
+    template = json_loader.get_template('invitation')
     factory = NotificationFactory(template, TemplateActionsBuilder(template))
     notification = factory.create(
         user=instance.user,

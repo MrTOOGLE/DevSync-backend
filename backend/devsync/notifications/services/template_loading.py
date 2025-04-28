@@ -4,11 +4,11 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Protocol, runtime_checkable
 
-from django.contrib.contenttypes.models import ContentType
 from django.templatetags.static import static
 from rest_framework.exceptions import ParseError
 
-from notifications.services.templates import NotificationTemplate, NotificationTemplateAction
+from notifications.services.schemes import TemplateSchema, TemplateActionSchema
+from notifications.services.templates import NotificationTemplate, NotificationActionTemplate
 
 
 @runtime_checkable
@@ -68,41 +68,33 @@ class JsonTemplateLoader:
     @classmethod
     def _parse_template(cls, template_dict: dict, template_name: str) -> NotificationTemplate:
         try:
+            validated_scheme = TemplateSchema(**template_dict)
+            app, model = validated_scheme.content_type.split(':')
             return NotificationTemplate(
-                title=template_dict.get('title', 'null'),
-                message=template_dict.get('message', 'null'),
-                content_type=cls._parse_content_type(template_dict['content_type']),
-                actions=tuple(cls._parse_actions(template_dict.get('actions', []), template_name)),
-                footnote=template_dict.get('footnote', None),
+                title=validated_scheme.title,
+                message=validated_scheme.message,
+                content_type_app=app,
+                content_type_model=model,
+                actions=tuple(cls._parse_actions(validated_scheme.actions)),
+                footnote=validated_scheme.footnote,
             )
-        except KeyError as e:
-            raise ParseError(f"Missing required field {e} in template {template_name}")
+        except Exception as e:
+            raise ParseError(f"Invalid template {template_name}: {str(e)}")
 
     @classmethod
-    def _parse_content_type(cls, content_type_str: str) -> ContentType:
-        try:
-            app_label, model = content_type_str.split(':')
-            return ContentType.objects.get(app_label=app_label, model=model)
-        except (ValueError, ContentType.DoesNotExist) as e:
-            raise ParseError(f"Invalid content type: {str(e)}")
+    def _parse_actions(cls, actions: list[TemplateActionSchema]) -> list[NotificationActionTemplate]:
+        return [cls._parse_action(action) for action in actions]
 
     @classmethod
-    def _parse_actions(cls, actions: list[dict], template_name: str) -> list[NotificationTemplateAction]:
-        return [cls._parse_action(action, template_name) for action in actions]
-
-    @classmethod
-    def _parse_action(cls, action: dict, template_name: str) -> NotificationTemplateAction:
-        try:
-            return NotificationTemplateAction(
-                type=action.get('type'),
-                text=action.get('text'),
-                viewname=action.get('viewname'),
-                viewname_kwargs=MappingProxyType(action.get('viewname_kwargs', {})),
-                redirect=action.get('redirect'),
-                redirect_kwargs=MappingProxyType(action.get('redirect_kwargs', {})),
-                style=action.get('style'),
-                next_template=action.get('next_template'),
-                new_related_object_id=action.get('new_related_object_id')
-            )
-        except KeyError as e:
-            raise ParseError(f"Missing required field {e} in action for template {template_name}")
+    def _parse_action(cls, action: TemplateActionSchema) -> NotificationActionTemplate:
+        return NotificationActionTemplate(
+            type=action.type,
+            text=action.text,
+            viewname=action.viewname,
+            viewname_kwargs=MappingProxyType(action.viewname_kwargs),
+            redirect=action.redirect,
+            redirect_kwargs=MappingProxyType(action.redirect_kwargs),
+            style=action.style,
+            next_template=action.next_template,
+            new_related_object_id=action.new_related_object_id,
+        )

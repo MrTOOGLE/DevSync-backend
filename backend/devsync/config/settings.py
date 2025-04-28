@@ -29,11 +29,11 @@ INSTALLED_APPS = [
     'djoser',
     'django_filters',
 
-    'notifications.apps.NotificationsConfig',
     'users.apps.UsersConfig',
     'api.apps.ApiConfig',
     'projects.apps.ProjectsConfig',
-    'voting.apps.VotingConfig'
+    'voting.apps.VotingConfig',
+    'notifications.apps.NotificationsConfig'
 ]
 
 MIDDLEWARE = [

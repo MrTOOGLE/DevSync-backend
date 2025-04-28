@@ -1,12 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Literal, Optional, ClassVar
 
-from django.contrib.contenttypes.models import ContentType
+from config.utils.lazy import LazyContentType
 
 
 @dataclass(frozen=True)
-class NotificationTemplateAction:
+class NotificationActionTemplate:
     type: Literal['request', 'anchor']
     text: str
     style: Literal['primary', 'secondary', 'danger']
@@ -24,11 +24,23 @@ class NotificationTemplate:
 
     title: str
     message: str
-    content_type: ContentType
-    actions: tuple[NotificationTemplateAction, ...] = ()
+    content_type_app: str
+    content_type_model: str
+    actions: tuple[NotificationActionTemplate, ...] = field(default_factory=tuple)
     footnote: Optional[str] = None
+    _lazy_content_type: LazyContentType = field(init=False, repr=False)
 
     def __post_init__(self):
-        for field in self.MAPPED_FIELDS:
-            if not hasattr(self, field):
-                raise ValueError(f'Field {field} has is not declared.')
+        for field_name in self.MAPPED_FIELDS:
+            if not (hasattr(self.__class__, field_name) or hasattr(self, field_name)):
+                raise ValueError(f'Field {field_name} is not declared.')
+
+        object.__setattr__(
+            self,
+            '_lazy_content_type',
+            LazyContentType(self.content_type_app, self.content_type_model),
+        )
+
+    @property
+    def content_type(self):
+        return self._lazy_content_type()
