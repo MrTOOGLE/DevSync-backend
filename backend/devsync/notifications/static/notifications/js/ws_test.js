@@ -10,22 +10,23 @@ class NotificationWebSocket {
   }
 
   connect() {
-    const token = "2a0900171d53dd190ced3bae7b5054006b1d2363";
+    const token = localStorage.getItem('authToken') || "2a0900171d53dd190ced3bae7b5054006b1d2363";
 
     this.socket = new WebSocket(`${this.wsUrl}?token=${token}`);
 
     this.socket.onopen = () => {
       console.log('WebSocket connected');
       this.reconnectAttempts = 0;
+      this.onConnect();
     };
 
     this.socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Received notification:', data);
-
+        this.handleMessage(data);
       } catch (error) {
         console.error('Error parsing message:', error);
+        this.onError('Invalid message format');
       }
     };
 
@@ -36,11 +37,72 @@ class NotificationWebSocket {
         console.warn('Connection died');
         this.reconnect();
       }
+      this.onDisconnect(event);
     };
 
     this.socket.onerror = (error) => {
       console.error('WebSocket error:', error);
+      this.onError('WebSocket error');
     };
+  }
+
+  // Базовые обработчики событий (можно переопределять)
+  onConnect() {
+    console.log('Connected to notifications server');
+  }
+
+  onDisconnect(event) {
+    console.log('Disconnected from server', event);
+  }
+
+  onError(error) {
+    console.error('Notification error:', error);
+  }
+
+  handleMessage(data) {
+    switch(data.type) {
+      case 'notification':
+        console.log('New notification:', data.data);
+        this.onNotification(data.data);
+        break;
+      case 'error':
+        console.error('Server error:', data.data.message);
+        this.onError(data.data.message);
+        break;
+      case 'read_confirmation':
+        console.log('Notification marked as read:', data.data.notification_id);
+        this.onReadConfirmation(data.data.notification_id);
+        break;
+      default:
+        console.warn('Unknown message type:', data.type);
+    }
+  }
+
+  // Методы для работы с уведомлениями
+  markAsRead(notificationId) {
+    if (this.isConnected()) {
+      this.socket.send(JSON.stringify({
+        type: 'mark_as_read',
+        notification_id: notificationId
+      }));
+      return true;
+    }
+    return false;
+  }
+
+  markAllAsRead() {
+    if (this.isConnected()) {
+      this.socket.send(JSON.stringify({
+        type: 'mark_all_read'
+      }));
+      return true;
+    }
+    return false;
+  }
+
+  // Вспомогательные методы
+  isConnected() {
+    return this.socket && this.socket.readyState === WebSocket.OPEN;
   }
 
   reconnect() {
@@ -62,16 +124,32 @@ class NotificationWebSocket {
     }
   }
 
-  markAsRead(notificationId) {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({
-        type: 'mark_as_read',
-        notification_id: notificationId
-      }));
-    }
+  // Обработчики, которые можно переопределить при наследовании
+  onNotification(notification) {
+    // Пример: показываем уведомление в UI
+    alert(`New notification: ${notification.message}`);
+  }
+
+  onReadConfirmation(notificationId) {
+    // Пример: обновляем UI
+    console.log(`Notification ${notificationId} was marked as read on server`);
   }
 }
 
+// Создаем глобальный объект для доступа из консоли
 const notificationSocket = new NotificationWebSocket();
 
+// Добавляем удобные алиасы для тестирования из консоли
+window.ns = {
+  markRead: (id) => notificationSocket.markAsRead(id),
+  markAllRead: () => notificationSocket.markAllAsRead(),
+  close: () => notificationSocket.close(),
+  status: () => notificationSocket.isConnected() ? 'connected' : 'disconnected'
+};
+
+console.log('Доступные команды для работы с WebSocket:');
+console.log('ns.markRead(id) - пометить уведомление как прочитанное');
+console.log('ns.markAllRead() - пометить все уведомления как прочитанные');
+console.log('ns.close() - закрыть соединение');
+console.log('ns.status() - проверить статус соединения');
 // notificationSocket.close();
