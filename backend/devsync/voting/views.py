@@ -1,21 +1,26 @@
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 
+from projects.permissions import ProjectAccessPermission
 from voting.filters import VotingFilter
 from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
-from voting.permissions import VotingAccessPermission
+from voting.paginators import PublicVotingPagination
+from voting.renderers import VotingListRenderer, VotingOptionListRenderer, VotingOptionChoiceListRenderer, \
+    VotingCommentListRenderer
 from voting.serializers import VotingSerializer, VotingCommentSerializer, VotingOptionChoiceSerializer, \
     VotingOptionSerializer
 
 
 class VotingViewSet(viewsets.ModelViewSet):
     serializer_class = VotingSerializer
-    permission_classes = (IsAuthenticated, VotingAccessPermission)
-    # renderer_classes = [ProjectListRenderer]
+    permission_classes = (IsAuthenticated, ProjectAccessPermission)
+    pagination_class = PublicVotingPagination
+    renderer_classes = [VotingListRenderer]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = VotingFilter
     ordering_fields = ('title', 'date_started', 'date_ended')
@@ -35,7 +40,7 @@ class VotingViewSet(viewsets.ModelViewSet):
 
 
 class VotingBasedViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAuthenticated, VotingAccessPermission]
+    permission_classes = [IsAuthenticated, ProjectAccessPermission]
 
     def get_voting(self):
         voting_id = self.kwargs.get('voting_pk')
@@ -52,6 +57,7 @@ class VotingBasedViewSet(viewsets.ModelViewSet):
 class VotingOptionViewSet(VotingBasedViewSet):
     queryset = VotingOption.objects.all()
     serializer_class = VotingOptionSerializer
+    renderer_classes = [VotingOptionListRenderer]
 
     def get_queryset(self):
         voting = self.get_voting()
@@ -60,6 +66,7 @@ class VotingOptionViewSet(VotingBasedViewSet):
 
 class VotingOptionChoiceViewSet(VotingBasedViewSet):
     serializer_class = VotingOptionChoiceSerializer
+    renderer_classes = [VotingOptionChoiceListRenderer]
 
     def get_queryset(self):
         voting = self.get_voting()
@@ -72,6 +79,7 @@ class VotingOptionChoiceViewSet(VotingBasedViewSet):
 class VotingCommentViewSet(VotingBasedViewSet):
     queryset = VotingComment.objects.all()
     serializer_class = VotingCommentSerializer
+    renderer_classes = [VotingCommentListRenderer]
 
     def get_queryset(self):
         voting = self.get_voting()

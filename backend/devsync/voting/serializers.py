@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from projects.models import Project
 from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
 
 from projects.serializers import UserSerializer, ProjectSerializer
@@ -10,6 +9,8 @@ User = get_user_model()
 
 
 class VotingOptionSerializer(serializers.ModelSerializer):
+    body = serializers.CharField(max_length=250)
+
     class Meta:
         model = VotingOption
         fields = ['id', 'body']
@@ -25,8 +26,27 @@ class VotingOptionChoiceSerializer(serializers.ModelSerializer):
         fields = ['id', 'voting_option', 'user']
         read_only_fields = ['id', 'user']
 
+    def validate(self, data):
+        data = super().validate(data)
+        voting_option = data['voting_option']
+        user = self.context['request'].user
+
+        voting = voting_option.voting
+
+        if VotingOptionChoice.objects.filter(
+                user=user,
+                voting_option__voting=voting
+        ).exists():
+            raise serializers.ValidationError(
+                {'user': 'This user has already voted'},
+                code='already_voted'
+            )
+
+        return data
+
 
 class VotingCommentSerializer(serializers.ModelSerializer):
+    body = serializers.CharField(max_length=3000)
     sender = UserSerializer(read_only=True)
 
     class Meta:
@@ -36,6 +56,8 @@ class VotingCommentSerializer(serializers.ModelSerializer):
 
 
 class VotingSerializer(serializers.ModelSerializer):
+    title = serializers.CharField(max_length=150)
+    body = serializers.CharField(max_length=2000)
     creator = UserSerializer(read_only=True)
     project = ProjectSerializer(read_only=True)
     options = VotingOptionSerializer(many=True, read_only=True)
