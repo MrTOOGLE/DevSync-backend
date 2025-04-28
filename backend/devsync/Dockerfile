@@ -2,21 +2,31 @@ FROM python:3.12
 
 SHELL ["/bin/bash", "-c"]
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    WORKDIR_PATH="/backend" \
+    VENV_PATH="/opt/venv"
 
-RUN apt update && apt -qy install gcc libjpeg-dev libxslt-dev \
-    libpq-dev libmariadb-dev libmariadb-dev-compat gettext cron openssh-client flake8 locales vim && \
-    rm -rf /var/lib/apt/lists/*
+ARG USERNAME=appuser
 
-RUN useradd -ms /bin/bash appuser && \
-    mkdir -p /backend/static /backend/media && \
-    chown -R appuser:appuser /backend
+RUN useradd -ms /bin/bash ${USERNAME} \
+    && mkdir -p ${WORKDIR_PATH} ${VENV_PATH} \
+    && chown -R ${USERNAME} ${WORKDIR_PATH} ${VENV_PATH}
 
-WORKDIR /backend
+WORKDIR ${WORKDIR_PATH}
 
-COPY --chown=appuser:appuser .. .
+COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /bin/
 
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+RUN uv venv ${VENV_PATH}
+ENV PATH="${VENV_PATH}/bin:$PATH"
 
-USER appuser
+COPY --chown=${USERNAME} ./pyproject.toml ./pyproject.toml
+
+RUN uv pip compile --generate-hashes ./pyproject.toml --output-file ./requirements.txt
+
+RUN uv pip install --no-cache --require-hashes --requirements ./requirements.txt \
+    && chown -R ${USERNAME} ${VENV_PATH}
+
+COPY --chown=${USERNAME} ./ ./
+
+USER ${USERNAME}
