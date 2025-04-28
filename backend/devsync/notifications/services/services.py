@@ -1,5 +1,6 @@
 from typing import Optional, Type
 
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from config.utils.executors import RequestExecutorWithTokenAuth, RequestExecutor
@@ -53,8 +54,8 @@ def execute_url(
 
 
 def update_notification_after_action(
-        action: NotificationAction,
-        notification: Notification
+    notification: Notification,
+    action: NotificationAction
 ) -> None:
     template_name = action.payload['next_template']
     template = get_template(template_name)
@@ -66,7 +67,21 @@ def update_notification_after_action(
     )
 
 
-def display_notification_action_error(notification: Notification, detail_data: list[str]) -> None:
-    notification.footnote = '. '.join(detail_data)
+def display_notification_action_error(notification: Notification) -> None:
+    notification.footnote = 'Не удалось обработать данное действие.'
     notification.actions_data = []
     notification.save()
+
+
+def execute_action(notification: Notification, action_data: dict[str, any], request: Request) -> Response:
+    notification_action = NotificationAction(**action_data)
+    response = execute_url(
+        notification_action.payload['url'],
+        headers=request.headers
+    )
+
+    if response.status_code < 400:
+        update_notification_after_action(notification, notification_action)
+    else:
+        display_notification_action_error(notification)
+    return response

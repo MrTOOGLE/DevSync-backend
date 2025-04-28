@@ -24,4 +24,4 @@ def delete_invitation_notification(sender, instance, **kwargs):
     Notification.objects.filter(
         user=instance.user,
         object_id=instance.id,
-    )
+    ).delete()

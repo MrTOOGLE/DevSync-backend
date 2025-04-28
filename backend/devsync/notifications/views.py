@@ -6,9 +6,7 @@ from rest_framework.response import Response
 from notifications.models import Notification
 from notifications.renderers import NotificationRenderer
 from notifications.serializers import NotificationSerializer, NotificationActionSerializer
-from notifications.services.actions import NotificationAction
-from notifications.services.services import execute_url, update_notification_after_action, \
-    display_notification_action_error
+from notifications.services.services import execute_action
 from users.permissions import IsAdminOnly
 
 
@@ -26,7 +24,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             'request': self.request,
         }
 
-    @action(methods=['POST'], detail=False)
+    @action(methods=['put'], detail=False)
     def mark_as_read(self, request, *args, **kwargs):
         Notification.objects.filter(
             user=self.request.user,
@@ -52,29 +50,20 @@ class NotificationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
-    @action(
-        methods=['post'],
-        detail=True,
-        url_path="actions/(?P<action_number>[0-9]+)"
-    )
-    def actions(self, request: Request, notification_pk=None, action_number=None):
+    @action(methods=['post'],detail=True)
+    def action(self, request: Request, notification_pk=None):
         notification = self.get_object()
         serializer = NotificationActionSerializer(
-            data={'action_number': action_number},
-            context={
-                'notification': notification,
-                'request': request
-            }
+            data=request.data,
+            context={'notification': notification}
         )
         serializer.is_valid(raise_exception=True)
-        notification_action = NotificationAction(**serializer.validated_data['action'])
-        response = execute_url(
-            notification_action.payload['url'],
-            headers=request.headers
+        response = execute_action(
+            notification,
+            serializer.validated_data['action'],
+            request
         )
-        response_data = response.json()
-        if response.status_code < 400:
-            update_notification_after_action(notification_action, notification)
-        elif "detail" in response_data:
-            display_notification_action_error(notification, response_data['detail'])
-        return Response(response_data, status=response.status_code)
+        return Response(
+            {'success': True},
+            status=response.status_code
+        )
