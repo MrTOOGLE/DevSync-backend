@@ -20,9 +20,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.5 /uv /uvx /bin/
 RUN uv venv ${VENV_PATH}
 ENV PATH="${VENV_PATH}/bin:$PATH"
 
-COPY --chown=${USERNAME} ./pyproject.toml ./pyproject.toml
-
-RUN uv pip compile --generate-hashes ./pyproject.toml --output-file ./requirements.txt
+COPY --chown=${USERNAME} ./requirements.txt ./requirements.txt
 
 RUN uv pip install --no-cache --require-hashes --requirements ./requirements.txt \
     && chown -R ${USERNAME} ${VENV_PATH}
