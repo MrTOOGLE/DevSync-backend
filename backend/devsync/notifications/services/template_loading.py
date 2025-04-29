@@ -35,7 +35,7 @@ class JsonTemplateLoader:
         self._templates_paths: list[Path] = []
 
     def register_template_path(self, template_path: str) -> None:
-        """Register path to templates for specific app"""
+        """Register static path to templates for specific app"""
         static_path = Path(static(template_path)[1:])
         if not static_path.exists():
             raise FileNotFoundError(f"Template path {static_path} does not exist")

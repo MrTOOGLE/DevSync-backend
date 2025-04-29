@@ -4,7 +4,6 @@ from typing import Any, Optional, Awaitable, Callable, Self
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
-
 logger: logging.Logger = logging.getLogger('django')
 
 
@@ -12,6 +11,8 @@ class NotificationConsumer(AsyncWebsocketConsumer):
     _HANDLERS: dict[str, Callable[[Self, dict[str, Any]], Awaitable[None]]] = {
         'mark_as_read': lambda self, data: self._handle_mark_as_read(data),
         'mark_all_read': lambda self, data: self._handle_mark_all_read(data),
+        'mark_as_hidden': lambda self, data: self._handle_mark_as_hidden(data),
+        'mark_all_hidden': lambda self, data: self._handle_mark_all_hidden(data),
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -96,6 +97,25 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             is_read=False
         ).update(is_read=True)
 
+    @database_sync_to_async
+    def hide_notification(self, notification_id: int) -> None:
+        from .models import Notification
+
+        if notification := Notification.objects.filter(
+                id=notification_id,
+                user=self.user
+        ).first():
+            notification.hide()
+
+    @database_sync_to_async
+    def hide_all_notifications(self) -> None:
+        from .models import Notification
+
+        Notification.objects.filter(
+            user=self.user,
+            is_hidden=False
+        ).update(is_hidden=True)
+
     async def _process_message(self, text_data: str) -> None:
         data: dict[str, Any] = json.loads(text_data)
         message_type: Optional[str] = data.get('type')
@@ -122,6 +142,16 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def _handle_mark_all_read(self, data: dict[str, Any]) -> None:
         await self.read_all_notifications()
+
+    async def _handle_mark_as_hidden(self, data: dict[str, Any]) -> None:
+        if not (notification_id := data.get('notification_id')):
+            await self._send_error("notification_id is required")
+            return
+
+        await self.hide_notification(notification_id)
+
+    async def _handle_mark_all_hidden(self, data: dict[str, Any]) -> None:
+        await self.hide_all_notifications()
 
     async def _send_message(self, message_type: str, payload: Any) -> None:
         await self.send(text_data=json.dumps({

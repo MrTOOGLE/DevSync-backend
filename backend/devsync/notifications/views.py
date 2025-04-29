@@ -7,7 +7,6 @@ from notifications.models import Notification
 from notifications.renderers import NotificationRenderer
 from notifications.serializers import NotificationSerializer, NotificationActionSerializer
 from notifications.services.services import execute_action
-from users.permissions import IsAdminOnly
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -17,7 +16,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     lookup_url_kwarg = "notification_pk"
 
     def get_queryset(self):
-        return Notification.objects.filter(user=self.request.user)
+        return Notification.visible_objects.filter(user=self.request.user)
 
     def get_serializer_context(self):
         return {
@@ -36,22 +35,15 @@ class NotificationViewSet(viewsets.ModelViewSet):
         )
 
     @action(methods=['delete'], detail=False)
-    def clear(self, request, *args, **kwargs):
-        self.get_queryset().delete()
+    def all(self, request, *args, **kwargs):
+        self.get_queryset().update(is_hidden=True)
         return Response(
             {'success': True},
             status=status.HTTP_204_NO_CONTENT
         )
 
-    @action(methods=['get'], detail=False, permission_classes=[IsAdminOnly])
-    def all(self, request, *args, **kwargs):
-        return Response(
-            {'notifications': NotificationSerializer(Notification.objects.all(), many=True).data},
-            status=status.HTTP_200_OK
-        )
-
-    @action(methods=['post'],detail=True)
-    def action(self, request: Request, notification_pk=None):
+    @action(methods=['post'],detail=True, url_path='action')
+    def do_action(self, request: Request, notification_pk=None):
         notification = self.get_object()
         serializer = NotificationActionSerializer(
             data=request.data,

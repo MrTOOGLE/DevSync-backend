@@ -8,6 +8,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = ['id', 'title', 'message', 'created_at', 'is_read', 'actions_data', 'footnote']
+        read_only_fields = ['id', 'title', 'message', 'created_at', 'actions_data', 'footnote']
 
     def get_message(self, obj):
         return obj.formatted_message

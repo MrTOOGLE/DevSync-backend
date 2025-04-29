@@ -10,7 +10,13 @@ from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from django.utils.timezone import now
 
+
 User = get_user_model()
+
+
+class VisibleNotificationManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_hidden=False)
 
 
 class Notification(models.Model):
@@ -18,6 +24,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=128)
     message = models.CharField(max_length=256)
     is_read = models.BooleanField(default=False)
+    is_hidden = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     content_data = models.JSONField(default=dict)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
@@ -26,16 +33,19 @@ class Notification(models.Model):
     actions_data = models.JSONField(default=dict)
     footnote = models.CharField(max_length=256, null=True, blank=True)
 
+    objects = models.Manager()
+    visible_objects = VisibleNotificationManager()
+
     class Meta:
         ordering = ['-created_at']
         indexes = [
             models.Index(
-                fields=['user']
+                name='user_visible_notifications_idx',
+                fields=['user'],
+                condition=models.Q(is_hidden=False)
             ),
             models.Index(
-                name='auto_expire_idx',
-                fields=['created_at'],
-                condition=models.Q(created_at__lt=now() - timedelta(weeks=2)),
+                fields=['created_at']
             )
         ]
 
@@ -43,19 +53,29 @@ class Notification(models.Model):
     def formatted_message(self):
         try:
             return self.message.format(**self.content_data, object=self.content_object)
-        except (KeyError, AttributeError) as e:
+        except (KeyError, AttributeError):
             return self.message
 
     def read(self):
         self.is_read = True
-        self.save()
+        self.save(update_fields=['is_read'])
+
+    def hide(self):
+        self.is_hidden = True
+        self.save(update_fields=['is_hidden'])
 
     def __str__(self):
-        return f"<{self.title}> for {self.user}"
+        return f"Notification <{self.title}> for {self.user}"
 
 
 @receiver(post_save, sender=Notification)
 def notification_updated(sender, instance, created, **kwargs):
+    update_fields = kwargs['update_fields']
+    is_only_read_updated = update_fields == frozenset(['is_read'])
+
+    if instance.is_hidden or is_only_read_updated:
+        return
+
     from .serializers import NotificationSerializer
 
     channel_layer = get_channel_layer()
@@ -75,6 +95,9 @@ def notification_updated(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Notification)
 def notification_deleted(sender, instance, **kwargs):
+    if instance.is_hidden:
+        return
+
     channel_layer = get_channel_layer()
 
     async_to_sync(channel_layer.group_send)(

@@ -100,6 +100,27 @@ class NotificationWebSocket {
     return false;
   }
 
+  markAsHidden(notificationId) {
+    if (this.isConnected()) {
+      this.socket.send(JSON.stringify({
+        type: 'mark_as_hidden',
+        notification_id: notificationId
+      }));
+      return true;
+    }
+    return false;
+  }
+
+  markAllAsHidden() {
+    if (this.isConnected()) {
+      this.socket.send(JSON.stringify({
+        type: 'mark_all_hidden'
+      }));
+      return true;
+    }
+    return false;
+  }
+
   // Вспомогательные методы
   isConnected() {
     return this.socket && this.socket.readyState === WebSocket.OPEN;
@@ -143,6 +164,8 @@ const notificationSocket = new NotificationWebSocket();
 window.ns = {
   markRead: (id) => notificationSocket.markAsRead(id),
   markAllRead: () => notificationSocket.markAllAsRead(),
+  markHidden: (id) => notificationSocket.markAsHidden(id),
+  markAllHidden: () => notificationSocket.markAllAsHidden(),
   close: () => notificationSocket.close(),
   status: () => notificationSocket.isConnected() ? 'connected' : 'disconnected'
 };
@@ -150,6 +173,8 @@ window.ns = {
 console.log('Доступные команды для работы с WebSocket:');
 console.log('ns.markRead(id) - пометить уведомление как прочитанное');
 console.log('ns.markAllRead() - пометить все уведомления как прочитанные');
+console.log('ns.markHidden(id) - скрыть уведомление');
+console.log('ns.markAllHidden() - скрыть все уведомления');
 console.log('ns.close() - закрыть соединение');
 console.log('ns.status() - проверить статус соединения');
 // notificationSocket.close();
