@@ -37,15 +37,9 @@ services:
     depends_on:
       - postgres
     command: >
-      bash -c "
-          python manage.py collectstatic --noinput &&
-          python manage.py migrate &&
-          gunicorn -b 0.0.0.0:8000 config.asgi:application 
-            -k uvicorn.workers.UvicornWorker
-            --access-logfile /dev/null
-            --error-logfile -
-            --log-level error
-        "
+      bash -c "python manage.py collectstatic --noinput && 
+      python manage.py migrate && 
+      gunicorn -b 0.0.0.0:8000 config.asgi:application -k uvicorn.workers.UvicornWorker"
     networks:
       - devsync-network
 
