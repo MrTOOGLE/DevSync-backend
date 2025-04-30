@@ -1,15 +1,16 @@
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Literal, Optional, ClassVar
+from typing import Optional, ClassVar
 
 from config.utils.lazy import LazyContentType
+from notifications.services.schemes import ActionType, ActionStyle, ActionName
 
 
 @dataclass(frozen=True)
 class NotificationActionTemplate:
-    type: Literal['request', 'anchor']
+    type: ActionType
     text: str
-    style: Literal['primary', 'secondary', 'danger']
+    style: ActionStyle
     viewname: Optional[str] = None
     viewname_kwargs: MappingProxyType[str, str] = MappingProxyType({})
     redirect: Optional[str] = None
@@ -26,7 +27,7 @@ class NotificationTemplate:
     message: str
     content_type_app: str
     content_type_model: str
-    actions: tuple[NotificationActionTemplate, ...] = field(default_factory=tuple)
+    actions: MappingProxyType[ActionName, NotificationActionTemplate] = MappingProxyType({})
     footnote: Optional[str] = None
     _lazy_content_type: LazyContentType = field(init=False, repr=False)
 

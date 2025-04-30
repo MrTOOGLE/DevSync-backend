@@ -17,11 +17,14 @@ class NotificationSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         if 'actions_data' in representation:
-            for action in representation['actions_data']:
+            actions_data = []
+            for action_name, action in representation['actions_data'].items():
                 if 'payload' in action:
                     payload = action['payload']
                     payload.pop('next_template', None)
                     payload.pop('new_related_object_id', None)
+                actions_data.append(action)
+            representation['actions_data'] = actions_data
 
         return representation
 

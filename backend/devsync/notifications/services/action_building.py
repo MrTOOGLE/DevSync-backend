@@ -4,12 +4,13 @@ from django.urls import reverse
 
 from notifications.models import Notification
 from notifications.services.actions import NotificationAction
+from notifications.services.schemes import ActionName
 from notifications.services.templates import NotificationTemplate, NotificationActionTemplate
 
 
 @runtime_checkable
 class NotificationActionsBuilder(Protocol):
-    def build(self, notification: Notification) -> list[NotificationAction]:
+    def build(self, notification: Notification) -> dict[ActionName, NotificationAction]:
         """Build notification actions"""
 
 
@@ -17,9 +18,12 @@ class TemplateActionsBuilder:
     def __init__(self, template: NotificationTemplate):
         self.template = template
 
-    def build(self, notification: Notification) -> list[NotificationAction]:
+    def build(self, notification: Notification) -> dict[ActionName, NotificationAction]:
         """Build list of NotificationAction from template"""
-        return [self._build_action(notification, action) for action in self.template.actions]
+        actions = {}
+        for action_name, action in self.template.actions.items():
+            actions[action_name] = self._build_action(notification, action)
+        return actions
 
     @classmethod
     def _build_action(cls, notification: Notification, action: NotificationActionTemplate) -> NotificationAction:

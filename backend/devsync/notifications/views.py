@@ -1,12 +1,10 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
-from rest_framework.request import Request
 from rest_framework.response import Response
 
 from notifications.models import Notification
 from notifications.renderers import NotificationRenderer
-from notifications.serializers import NotificationSerializer, NotificationActionSerializer
-from notifications.services.services import execute_action
+from notifications.serializers import NotificationSerializer
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -40,22 +38,4 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return Response(
             {'success': True},
             status=status.HTTP_204_NO_CONTENT
-        )
-
-    @action(methods=['post'],detail=True, url_path='action')
-    def do_action(self, request: Request, notification_pk=None):
-        notification = self.get_object()
-        serializer = NotificationActionSerializer(
-            data=request.data,
-            context={'notification': notification}
-        )
-        serializer.is_valid(raise_exception=True)
-        response = execute_action(
-            notification,
-            serializer.validated_data['action'],
-            request
-        )
-        return Response(
-            {'success': True},
-            status=response.status_code
         )

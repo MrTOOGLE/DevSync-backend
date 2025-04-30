@@ -19,12 +19,11 @@ def apply_template_to_notification(
 
     notification.object_id = related_object_id
     notification.content_data = content_data or {}
-
     if actions_builder is None:
         actions_builder = TemplateActionsBuilder(template)
-
-    notification.actions_data = [
-        asdict(action) for action in actions_builder.build(notification)
-    ]
+    actions = actions_builder.build(notification)
+    notification.actions_data = {
+        action_name:asdict(action) for action_name, action in actions.items()
+    }
 
     return notification

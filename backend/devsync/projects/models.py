@@ -7,7 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.timezone import now
 
-from config.fields import WEBPField
+from config.utils.fields import WEBPField
 from config.settings import PROJECT_INVITATION_EXPIRY_DAYS
 
 User = get_user_model()
@@ -69,6 +69,9 @@ class ProjectInvitation(models.Model):
 
     def accept(self) -> None:
         ProjectMember.objects.get_or_create(project=self.project, user=self.user)
+        self.delete()
+
+    def reject(self) -> None:
         self.delete()
 
     def __str__(self):
