@@ -74,7 +74,7 @@ def update_notification_by_action(
         return True
     except (KeyError, TemplateNotFoundError) as e:
         logger.error(f"Invalid action processing: {str(e)}.")
-        handle_notification_action_failure(
+        update_notification_footnote(
             notification,
             error_message=f"Не удалось выполнить действие, попробуйте позже.",
             clear_actions=False
@@ -82,7 +82,7 @@ def update_notification_by_action(
         return False
 
 
-def handle_notification_action_failure(
+def update_notification_footnote(
         notification: Notification,
         *,
         error_message: str,

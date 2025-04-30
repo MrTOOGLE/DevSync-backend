@@ -20,7 +20,7 @@ from .models import (
     ProjectInvitation,
     MemberRole, MemberDepartment
 )
-from .services import send_invitation_notification
+from .services import ProjectInvitationService
 from .paginators import PublicProjectPagination
 from .permissions import ProjectAccessPermission
 from .renderers import (
@@ -43,7 +43,7 @@ from .serializers import (
     ChangeMemberRoleSerializer,
     ChangeMemberDepartmentSerializer, ProjectInvitationActionSerializer
 )
-from .services import accept_invitation, reject_invitation
+
 
 User = get_user_model()
 
@@ -294,7 +294,10 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
 
     def perform_create(self, serializer):
         invitation = serializer.save(project=self.get_project(), invited_by=self.request.user)
-        send_invitation_notification(invitation)
+        ProjectInvitationService.send_invitation_notification(invitation)
+
+    def perform_destroy(self, instance):
+        instance.delete()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -310,7 +313,7 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
         serializer.is_valid(raise_exception=True)
         invitation = serializer.validated_data['invitation']
 
-        accept_invitation(invitation)
+        ProjectInvitationService.accept_invitation(invitation)
 
         return Response(
             {"success": True},
@@ -325,7 +328,7 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
         )
         serializer.is_valid(raise_exception=True)
         invitation = serializer.validated_data['invitation']
-        reject_invitation(invitation)
+        ProjectInvitationService.reject_invitation(invitation)
         return Response(
             {"success": True},
             status=status.HTTP_200_OK
