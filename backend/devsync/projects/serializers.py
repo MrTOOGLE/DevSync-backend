@@ -130,12 +130,6 @@ class ProjectInvitationActionSerializer(serializers.Serializer):
                 code="no_invitation"
             )
 
-        if invitation.is_expired():
-            raise serializers.ValidationError(
-                {"detail": "Срок действия данного приглашения истек."},
-                code="expired_invitation"
-            )
-
         attrs['invitation'] = invitation
         return attrs
 

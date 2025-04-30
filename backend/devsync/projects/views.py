@@ -8,9 +8,12 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.serializers import Serializer
 
 from config.settings import PUBLIC_PROJECTS_CACHE_KEY
+from notifications.services.services import NotificationContextService
 from users.serializers import UserSerializer
+from .exceptions import ProjectInvitationIsExpiredError
 from .filters import ProjectFilter
 from .models import (
     Project,
@@ -20,7 +23,8 @@ from .models import (
     ProjectInvitation,
     MemberRole, MemberDepartment
 )
-from .services import ProjectInvitationService
+from .notifications.loaders import json_loader
+from .services import ProjectInvitationService, ProjectInvitationNotificationService
 from .paginators import PublicProjectPagination
 from .permissions import ProjectAccessPermission
 from .renderers import (
@@ -282,6 +286,15 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
     renderer_classes = [ProjectInvitationListRenderer]
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._notification_service = ProjectInvitationNotificationService(
+            'invitation',
+            json_loader,
+            NotificationContextService()
+        )
+        self._invitations_service = ProjectInvitationService(self._notification_service)
+
     def get_queryset(self):
         return ProjectInvitation.objects.filter(
             project_id=self.kwargs['project_pk']
@@ -292,11 +305,12 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
             return ProjectInvitationCreateSerializer
         return ProjectInvitationSerializer
 
-    def perform_create(self, serializer):
+    def perform_create(self, serializer: Serializer):
         invitation = serializer.save(project=self.get_project(), invited_by=self.request.user)
-        ProjectInvitationService.send_invitation_notification(invitation)
+        self._notification_service.create_notification(invitation.user, invitation)
 
-    def perform_destroy(self, instance):
+    def perform_destroy(self, instance: ProjectInvitation):
+        self._notification_service.delete_notification(instance.user, instance)
         instance.delete()
 
     def get_serializer_context(self):
@@ -313,8 +327,13 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
         serializer.is_valid(raise_exception=True)
         invitation = serializer.validated_data['invitation']
 
-        ProjectInvitationService.accept_invitation(invitation)
-
+        try:
+            self._invitations_service.accept_invitation(self.request.user, invitation)
+        except ProjectInvitationIsExpiredError as e:
+            return Response(
+                {"detail": "Срок действия данного приглашения истек."},
+                status=status.HTTP_410_GONE
+            )
         return Response(
             {"success": True},
             status=status.HTTP_200_OK
@@ -328,7 +347,7 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
         )
         serializer.is_valid(raise_exception=True)
         invitation = serializer.validated_data['invitation']
-        ProjectInvitationService.reject_invitation(invitation)
+        self._invitations_service.reject_invitation(self.request.user, invitation)
         return Response(
             {"success": True},
             status=status.HTTP_200_OK

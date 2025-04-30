@@ -1,0 +1,3 @@
+class ProjectInvitationIsExpiredError(Exception):
+    pass
+
