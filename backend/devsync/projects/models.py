@@ -1,8 +1,14 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils.timezone import now
 
 from config.fields import WEBPField
+from config.settings import PROJECT_INVITATION_EXPIRY_DAYS
 
 User = get_user_model()
 
@@ -56,6 +62,11 @@ class ProjectInvitation(models.Model):
         ]
         ordering = ['-date_created']
 
+    def is_expired(self):
+        if now() >= self.date_created + timedelta(days=PROJECT_INVITATION_EXPIRY_DAYS):
+            return True
+        return False
+
     def accept(self) -> None:
         ProjectMember.objects.get_or_create(project=self.project, user=self.user)
         self.delete()
@@ -69,11 +80,6 @@ class Department(models.Model):
     title = models.CharField(max_length=150)
     date_created = models.DateTimeField(auto_now_add=True)
     description = models.CharField(max_length=256, blank=True, default='')
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(fields=['project', 'title'], name='unique_project_department')
-        ]
 
     def __str__(self):
         return f'{self.title} ({self.project})'
@@ -136,3 +142,12 @@ class RolePermissions(models.Model):
 
     def __str__(self):
         return f"Permissions for {self.role.name} ({self.role.project})"
+
+
+@receiver(post_save, sender=Project)
+def add_owner_as_member(sender, instance, created, **kwargs):
+    if created:
+        ProjectMember.objects.get_or_create(
+            project=instance,
+            user=instance.owner
+        )

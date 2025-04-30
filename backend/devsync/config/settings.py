@@ -12,7 +12,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 DEBUG = os.getenv("DEBUG") == "True"
 
-ALLOWED_HOSTS = []  # os.getenv("ALLOWED_HOSTS").strip().split(",")
+ALLOWED_HOSTS = ['*']  # os.getenv("ALLOWED_HOSTS").strip().split(",")
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -22,6 +22,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'channels',
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
@@ -32,7 +33,7 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'projects.apps.ProjectsConfig',
     'voting.apps.VotingConfig',
-    #'notifications.apps.NotificationsConfig',
+    'notifications.apps.NotificationsConfig'
 ]
 
 MIDDLEWARE = [
@@ -69,6 +70,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+
+ASGI_APPLICATION = 'config.asgi.application'
+
 
 DATABASES = {
     'default': {
@@ -310,3 +314,16 @@ REQUEST_LOGGING = {
     "EXCLUDE_PATHS": [],
     "SENSITIVE_KEYS": ['password', 'token'],
 }
+
+# django channels
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [(REDIS_HOST, REDIS_PORT)],
+        },
+    },
+}
+
+# general
+PROJECT_INVITATION_EXPIRY_DAYS = 7

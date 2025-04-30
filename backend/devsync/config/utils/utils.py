@@ -1,4 +1,5 @@
 import functools
+import sys
 from typing import (
     Mapping,
     TypeVar,
@@ -110,3 +111,9 @@ def apply_sensitive_filter(
         return wrapper
 
     return decorator
+
+
+def is_server_command():
+    return any(
+        cmd in sys.argv for cmd in ['runserver', 'gunicorn', 'uvicorn']
+    )

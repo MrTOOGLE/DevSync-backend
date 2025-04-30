@@ -6,6 +6,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from config.settings import PUBLIC_PROJECTS_CACHE_KEY
@@ -39,7 +40,7 @@ from .serializers import (
     ProjectInvitationSerializer,
     ProjectOwnerSerializer,
     ChangeMemberRoleSerializer,
-    ChangeMemberDepartmentSerializer
+    ChangeMemberDepartmentSerializer, ProjectInvitationActionSerializer
 )
 
 User = get_user_model()
@@ -70,8 +71,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Project.objects.all()
 
     def perform_create(self, serializer):
-        project = serializer.save(owner=self.request.user)
-        ProjectMember.objects.create(project=project, user=self.request.user)
+        serializer.save(owner=self.request.user)
 
     @action(
         methods=['get'],
@@ -106,32 +106,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         return Response(
             {"success": True},
             status=status.HTTP_200_OK
-        )
-
-    @action(methods=["post"], detail=True, permission_classes=[permissions.IsAuthenticated])
-    def join(self, request, *args, **kwargs):
-        project = self.get_object()
-        user = request.user
-
-        if ProjectMember.objects.filter(project=project, user=user).exists():
-            return Response(
-                {"detail": "You are already a member of this project."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        invitation = ProjectInvitation.objects.filter(project=project, user=user).first()
-
-        if not invitation:
-            return Response(
-                {"detail": "No active invitation found to join this project."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        invitation.accept()
-
-        return Response(
-            {"success": True},
-            status=status.HTTP_201_CREATED
         )
 
     @action(methods=['get', 'put'], detail=True)
@@ -323,6 +297,37 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
         context = super().get_serializer_context()
         context['user'] = self.request.user
         return context
+
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated])
+    def accept(self, request, project_pk=None):
+        serializer = ProjectInvitationActionSerializer(
+            data=request.data,
+            context={'request': request, 'project_pk': project_pk}
+        )
+        serializer.is_valid(raise_exception=True)
+        invitation = serializer.validated_data['invitation']
+
+        invitation.accept()
+
+        return Response(
+            {"success": True},
+            status=status.HTTP_200_OK
+        )
+
+    @action(methods=['post'], detail=False, permission_classes=[IsAuthenticated])
+    def reject(self, request, project_pk=None):
+        serializer = ProjectInvitationActionSerializer(
+            data=request.data,
+            context={'request': request, 'project_pk': project_pk}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        invitation = serializer.validated_data['invitation']
+        invitation.delete()
+        return Response(
+            {"success": True},
+            status=status.HTTP_200_OK
+        )
 
 
 class DepartmentViewSet(ProjectBasedViewSet):

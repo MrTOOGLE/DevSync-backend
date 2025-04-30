@@ -1,0 +1,45 @@
+{
+  "invitation": {
+    "title": "Вас пригласили в проект!",
+    "message": "Дорогой пользователь, Вы приглашены в проект '{object.project.title}'!",
+    "content_type": "projects:projectinvitation",
+    "actions": [
+      {
+        "type": "request",
+        "text": "Подтвердить",
+        "viewname": "project-invitations-accept",
+        "viewname_kwargs": {
+          "project_pk": "{object.project_id}"
+        },
+        "style": "primary",
+        "next_template": "accept-invitation",
+        "new_related_object_id": "{object.project.id}"
+      },
+      {
+        "type": "request",
+        "text": "Отклонить",
+        "viewname": "project-invitations-reject",
+        "viewname_kwargs": {
+          "project_pk": "{object.project_id}"
+        },
+        "style": "secondary",
+        "next_template": "reject-invitation",
+        "new_related_object_id": "{object.project.id}"
+      }
+    ]
+  },
+  "accept-invitation": {
+    "title": "Вас пригласили в проект!",
+    "message": "Дорогой пользователь, Вы приглашены в проект '{object.title}'!",
+    "content_type": "projects:project",
+    "actions": [],
+    "footnote": "Вы приняли приглашение в проект!"
+  },
+  "reject-invitation": {
+    "title": "Вас пригласили в проект!",
+    "message": "Дорогой пользователь, Вы приглашены в проект '{object.title}'!",
+    "content_type": "projects:project",
+    "actions": [],
+    "footnote": "Вы отклонили приглашение в проект! Если Вы сделали это по ошибке обратитесь к создателю проекта!"
+  }
+}

@@ -5,7 +5,7 @@ from django.db import connection
 from django.http import JsonResponse, HttpRequest
 
 from . import settings
-from .utils.requests import get_request_info, get_response_info, get_error_info, get_queries_info
+from .utils.request import get_request_info, get_response_info, get_error_info, get_queries_info
 from .utils.utils import apply_sensitive_filter
 
 logger = logging.getLogger('requests')

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, ProjectMember, Department, MemberDepartment, Role, RolePermissions
+from .models import Project, ProjectMember, Department, MemberDepartment, Role, RolePermissions, ProjectInvitation
 
 
 @admin.register(Project)
@@ -17,6 +17,11 @@ class ProjectMemberAdmin(admin.ModelAdmin):
 
     save_on_top = True
 
+
+@admin.register(ProjectInvitation)
+class ProjectInvitationAdmin(admin.ModelAdmin):
+    list_display = ("project", "user", "invited_by")
+    save_on_top = True
 
 @admin.register(Department)
 class DepartmentAdmin(admin.ModelAdmin):
