@@ -11,8 +11,6 @@ class ProjectsConfig(AppConfig):
     name = 'projects'
 
     def ready(self):
-        from .notifications import signals
-
         if 'manage.py' in sys.argv[0] and not is_server_command():
             return
 

@@ -7,8 +7,13 @@ from typing import Protocol, runtime_checkable
 from django.templatetags.static import static
 from rest_framework.exceptions import ParseError
 
-from notifications.services.schemes import TemplateSchema, TemplateActionSchema
+from config import settings
+from notifications.services.schemes import TemplateSchema, TemplateActionSchema, ActionName
 from notifications.services.templates import NotificationTemplate, NotificationActionTemplate
+
+
+class TemplateNotFoundError(Exception):
+    pass
 
 
 @runtime_checkable
@@ -26,7 +31,7 @@ _loaded_templates: dict[str, NotificationTemplate] = {}
 def get_template(name: str) -> NotificationTemplate:
     if name in _loaded_templates:
         return _loaded_templates[name]
-    raise KeyError(f'Template "{name}" not loaded.')
+    raise TemplateNotFoundError(f"Template {name} not found.")
 
 
 class JsonTemplateLoader:
@@ -36,9 +41,9 @@ class JsonTemplateLoader:
 
     def register_template_path(self, template_path: str) -> None:
         """Register static path to templates for specific app"""
-        static_path = Path(static(template_path)[1:])
+        static_path = Path(settings.STATIC_ROOT) / template_path
         if not static_path.exists():
-            raise FileNotFoundError(f"Template path {static_path} does not exist")
+            raise FileNotFoundError(f"Template path {static_path} does not exist.")
         self._templates_paths.append(static_path)
 
     @lru_cache(maxsize=None)
@@ -55,7 +60,7 @@ class JsonTemplateLoader:
         try:
             return self._templates[name]
         except KeyError:
-            raise ValueError(f"Template {name} not found")
+            raise TemplateNotFoundError(f"Template {name} not found.")
 
     def _load_templates_from_path(self, path: Path) -> None:
         with open(path, 'r') as file:
@@ -75,15 +80,18 @@ class JsonTemplateLoader:
                 message=validated_scheme.message,
                 content_type_app=app,
                 content_type_model=model,
-                actions=tuple(cls._parse_actions(validated_scheme.actions)),
+                actions=MappingProxyType(cls._parse_actions(validated_scheme.actions)),
                 footnote=validated_scheme.footnote,
             )
         except Exception as e:
             raise ParseError(f"Invalid template {template_name}: {str(e)}")
 
     @classmethod
-    def _parse_actions(cls, actions: list[TemplateActionSchema]) -> list[NotificationActionTemplate]:
-        return [cls._parse_action(action) for action in actions]
+    def _parse_actions(
+            cls,
+            actions: dict[ActionName, TemplateActionSchema]
+    ) -> dict[ActionName, NotificationActionTemplate]:
+        return {action_name: cls._parse_action(action) for action_name, action in actions.items()}
 
     @classmethod
     def _parse_action(cls, action: TemplateActionSchema) -> NotificationActionTemplate:

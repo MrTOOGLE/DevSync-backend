@@ -1,15 +1,11 @@
-from datetime import timedelta
-
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.db import models
+from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.contrib.auth import get_user_model
+from django.db import models
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.utils.timezone import now
-
 
 User = get_user_model()
 
