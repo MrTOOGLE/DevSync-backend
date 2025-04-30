@@ -7,6 +7,7 @@ from typing import Protocol, runtime_checkable
 from django.templatetags.static import static
 from rest_framework.exceptions import ParseError
 
+from config import settings
 from notifications.services.schemes import TemplateSchema, TemplateActionSchema, ActionName
 from notifications.services.templates import NotificationTemplate, NotificationActionTemplate
 
@@ -40,7 +41,7 @@ class JsonTemplateLoader:
 
     def register_template_path(self, template_path: str) -> None:
         """Register static path to templates for specific app"""
-        static_path = Path(static(template_path)[1:])
+        static_path = Path(settings.STATIC_ROOT) / template_path
         if not static_path.exists():
             raise FileNotFoundError(f"Template path {static_path} does not exist.")
         self._templates_paths.append(static_path)
@@ -72,7 +73,6 @@ class JsonTemplateLoader:
     @classmethod
     def _parse_template(cls, template_dict: dict, template_name: str) -> NotificationTemplate:
         try:
-            print(template_dict)
             validated_scheme = TemplateSchema(**template_dict)
             app, model = validated_scheme.content_type.split(':')
             return NotificationTemplate(
