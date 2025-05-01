@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from projects.serializers.base import BaseChangeMemberRelationSerializer
 from roles.models import Role, MemberRole
+from roles.validators import validate_hex_color
 
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -12,22 +13,19 @@ class RoleSerializer(serializers.ModelSerializer):
 
 
 class RoleWriteSerializer(serializers.ModelSerializer):
+    color = serializers.CharField(
+        validators=[validate_hex_color],
+        help_text='HEX color in #RRGGBB format (e.g. #FF5733)',
+        required=False
+    )
+
     class Meta:
         model = Role
-        fields = ['id', 'name', 'rank']
+        fields = ['id', 'name', 'color', 'rank']
         extra_kwargs = {
             'name': {'trim_whitespace': True}
         }
         read_only_fields = ['id']
-
-    def validate_department(self, value):
-        project = self.context.get('project')
-        if value and value.project != project:
-            raise serializers.ValidationError(
-                {'department': 'Такого отдела нет в данном проекте.'},
-                code='invalid_department'
-            )
-        return value
 
 
 class ChangeMemberRoleSerializer(BaseChangeMemberRelationSerializer):
