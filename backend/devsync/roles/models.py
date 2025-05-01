@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-
+from django.utils.timezone import now
 
 User = get_user_model()
 
@@ -19,6 +19,7 @@ class Role(models.Model):
 class MemberRole(models.Model):
     role = models.ForeignKey(Role, related_name='members', on_delete=models.CASCADE)
     user = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
+    date_added = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f'{self.role} for {self.user}'

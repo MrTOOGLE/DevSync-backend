@@ -1,10 +1,6 @@
 from .project import ProjectSerializer, ProjectOwnerSerializer
 from .member import ProjectMemberSerializer
-from .department import (
-    DepartmentSerializer,
-    DepartmentWriteSerializer,
-    ChangeMemberDepartmentSerializer
-)
+from .department import DepartmentWithMembersSerializer
 from .invitation import (
     ProjectInvitationSerializer,
     ProjectInvitationCreateSerializer,

@@ -8,15 +8,10 @@ from rest_framework.response import Response
 
 from config.settings import PUBLIC_PROJECTS_CACHE_KEY
 from projects.filters import ProjectFilter
-from projects.models import (
-    Project,
-    ProjectMember
-)
+from projects.models import Project
 from projects.paginators import PublicProjectPagination
 from projects.permissions import ProjectAccessPermission
-from projects.renderers import (
-    ProjectListRenderer
-)
+from projects.renderers import ProjectListRenderer
 from projects.serializers import (
     ProjectSerializer,
     ProjectOwnerSerializer
@@ -68,24 +63,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
         response = super().list(request)
         cache.set(cache_key, response.data, timeout=15)
         return response
-
-    @action(methods=["post"], detail=True)
-    def leave(self, request, *args, **kwargs):
-        project = self.get_object()
-        user = request.user
-
-        if project.owner == user:
-            return Response(
-                {"detail": "Project owner cannot leave the project. Transfer ownership first."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
-        membership = ProjectMember.objects.filter(project=project, user=user).first()
-        membership.delete()
-        return Response(
-            {"success": True},
-            status=status.HTTP_200_OK
-        )
 
     @action(methods=['get', 'put'], detail=True)
     def owner(self, request, *args, **kwargs):

@@ -1,27 +1,18 @@
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from projects.models import MemberDepartment, Department
-from projects.serializers.base import BaseChangeMemberRelationSerializer
 from users.serializers import UserSerializer
 
-
-class DepartmentMemberSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-
-    class Meta:
-        model = MemberDepartment
-        fields = ['user', 'date_joined']
-        read_only_fields = ['date_joined']
+User = get_user_model()
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
-    members = DepartmentMemberSerializer(many=True, read_only=True, source='members.all')
-
     class Meta:
         model = Department
         fields = [
             'id', 'title', 'date_created',
-            'description', 'members'
+            'description'
         ]
         read_only_fields = ['id', 'date_created']
         extra_kwargs = {
@@ -30,24 +21,48 @@ class DepartmentSerializer(serializers.ModelSerializer):
         }
 
 
-class DepartmentWriteSerializer(serializers.ModelSerializer):
+class DepartmentWithMembersSerializer(DepartmentSerializer):
+    members = serializers.SerializerMethodField()
+
+    class Meta(DepartmentSerializer.Meta):
+        fields = DepartmentSerializer.Meta.fields + ['members']
+
+    def get_members(self, obj):
+        users = [member.user for member in obj.members.all()]
+        return UserSerializer(users, many=True).data
+
+
+class DepartmentMemberSerializer(serializers.ModelSerializer):
+    department_id = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(),
+        write_only=True,
+        source="department"
+    )
+    department = DepartmentSerializer(read_only=True)
+
     class Meta:
-        model = Department
-        fields = ['id', 'title', 'description', 'date_created']
-        extra_kwargs = {
-            'title': {'trim_whitespace': True},
-            'description': {'trim_whitespace': True}
-        }
-        read_only_fields = ['id', 'date_created']
-
-
-class ChangeMemberDepartmentSerializer(BaseChangeMemberRelationSerializer):
-    relation_model = Department
-    relation_name = 'department'
-    member_relation_model = MemberDepartment
-    not_found_error_message = 'Данного отдела не существует в этом проекте.'
-    already_exists_error_message = 'Этот отдел уже принадлежит данному пользователю.'
-    not_exists_error_message = 'Этот отдел не принадлежит данному пользователю.'
-
-    class Meta(BaseChangeMemberRelationSerializer.Meta):
         model = MemberDepartment
+        fields = ['department', 'department_id', 'date_joined']
+        read_only_fields = ['date_joined']
+
+    def validate_department_id(self, value):
+        project_id = int(self.context['view'].kwargs['project_pk'])
+        if value.project_id != project_id:
+            raise serializers.ValidationError(
+                {'department_id': 'Данного отдела не существует в этом проекте.'},
+                code='invalid_department'
+            )
+        return value
+
+    def validate(self, attrs):
+        user_id = int(self.context['view'].kwargs['member_pk'])
+        department = attrs.get('department')
+        if MemberDepartment.objects.filter(
+                user_id=user_id,
+                department=department
+        ).exists():
+            raise serializers.ValidationError(
+                {"department_id": "Пользователь уже состоит в этом отделе."},
+                code='invalid_department'
+            )
+        return attrs

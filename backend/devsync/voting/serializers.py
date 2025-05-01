@@ -1,10 +1,10 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from projects.models import Project
 from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
 
-from projects.serializers import UserSerializer, ProjectSerializer
+from users.serializers import UserSerializer
+from projects.serializers import ProjectSerializer
 
 User = get_user_model()
 
