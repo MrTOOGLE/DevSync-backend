@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'projects.apps.ProjectsConfig',
     'voting.apps.VotingConfig',
+    'roles.apps.RolesConfig',
     'notifications.apps.NotificationsConfig'
 ]
 
