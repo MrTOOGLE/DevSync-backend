@@ -1,4 +1,3 @@
-from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -39,11 +38,12 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
         super().perform_destroy(instance)
 
     @action(methods=['get', 'delete'], detail=False)
-    def me(self, request, project_pk, pk=None):
+    def me(self, request, project_pk):
+        self.kwargs['pk'] = request.user.id
         if request.method == 'GET':
-            return super().retrieve(request, project_pk, request.user.id)
+            return super().retrieve(request)
         elif request.method == 'DELETE':
-            return super().destroy(request, project_pk, request.user.id)
+            return super().destroy(request)
 
 
 class ProjectMemberDepartmentViewSet(BaseProjectMembershipViewSet):
