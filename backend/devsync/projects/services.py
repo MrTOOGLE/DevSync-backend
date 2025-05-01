@@ -1,26 +1,26 @@
 from django.contrib.auth.models import AbstractUser
 
+from config import settings
 from notifications.models import Notification
 from notifications.services.action_building import TemplateActionsBuilder
 from notifications.services.factories import TemplateNotificationFactory
 from notifications.services.services import NotificationService, NotificationContextServiceBase, \
     NotificationServiceBase
-from notifications.services.template_loading import TemplateLoader
+from notifications.services.template_loading import NotificationTemplateLoader
 from notifications.services.utils import update_notification_footer
 from projects.exceptions import ProjectInvitationIsExpiredError
 from projects.models import ProjectInvitation
-from projects.notifications.loaders import json_loader
 
 
 class ProjectInvitationNotificationService(NotificationService[ProjectInvitation]):
     def __init__(
             self,
             template_name: str,
-            template_loader: TemplateLoader,
+            template_loader: NotificationTemplateLoader,
             context_service: NotificationContextServiceBase
     ):
-        template = json_loader.get_template(template_name)
-        super().__init__(template_loader, TemplateNotificationFactory(
+        template = template_loader.get_template(template_name)
+        super().__init__(template_loader, TemplateNotificationFactory( #TODO
             template,
             TemplateActionsBuilder(template)
         ))
@@ -37,8 +37,6 @@ class ProjectInvitationNotificationService(NotificationService[ProjectInvitation
 
 
 class ProjectInvitationService:
-    INVITATION_IS_EXPIRED_MESSAGE = 'Приглашение истекло. Запросите новое или проигнорируйте!'
-
     def __init__(self, notification_service: NotificationServiceBase[ProjectInvitation]):
         self._notification_service = notification_service
 
@@ -58,10 +56,10 @@ class ProjectInvitationService:
         notification = self._notification_service.get_notification(user, invitation)
         update_notification_footer(
             notification,
-            footnote=self.INVITATION_IS_EXPIRED_MESSAGE,
+            footnote=settings.INVITATION_IS_EXPIRED_MESSAGE,
             clear_actions=True
         )
-        raise ProjectInvitationIsExpiredError(self.INVITATION_IS_EXPIRED_MESSAGE)
+        raise ProjectInvitationIsExpiredError(settings.INVITATION_IS_EXPIRED_MESSAGE)
 
     def delete_invitation(self, user: AbstractUser, invitation: ProjectInvitation) -> None:
         invitation.delete()

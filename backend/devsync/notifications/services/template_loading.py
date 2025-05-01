@@ -11,11 +11,11 @@ from notifications.services.schemes import TemplateSchema, TemplateActionSchema,
 from notifications.services.templates import NotificationTemplate, NotificationActionTemplate
 
 
-class TemplateNotFoundError(Exception):
+class NotificationTemplateNotFoundError(Exception):
     pass
 
 
-class TemplateLoader(metaclass=ABCMeta):
+class NotificationTemplateLoader(metaclass=ABCMeta):
     @abstractmethod
     def load_templates(self) -> MappingProxyType[str, NotificationTemplate]:
         """Load and return all templates"""
@@ -31,10 +31,10 @@ _loaded_templates: dict[str, NotificationTemplate] = {}
 def get_template(name: str) -> NotificationTemplate:
     if name in _loaded_templates:
         return _loaded_templates[name]
-    raise TemplateNotFoundError(f"Template {name} not found.")
+    raise NotificationTemplateNotFoundError(f"Template {name} not found.")
 
 
-class JsonTemplateLoader(TemplateLoader):
+class JsonNotificationTemplateLoader(NotificationTemplateLoader):
     def __init__(self):
         self._templates: dict[str, NotificationTemplate] = {}
         self._templates_paths: list[Path] = []
@@ -60,7 +60,7 @@ class JsonTemplateLoader(TemplateLoader):
         try:
             return self._templates[name]
         except KeyError:
-            raise TemplateNotFoundError(f"Template {name} not found.")
+            raise NotificationTemplateNotFoundError(f"Template {name} not found.")
 
     def _load_templates_from_path(self, path: Path) -> None:
         with open(path, 'r') as file:

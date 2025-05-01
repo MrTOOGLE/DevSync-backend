@@ -1,6 +1,6 @@
 import logging
-from abc import ABCMeta, abstractmethod
-from typing import Optional, TypeVar, Generic
+from abc import abstractmethod, ABC
+from typing import Optional, TypeVar, Generic, Any
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -10,7 +10,7 @@ from notifications.services.action_building import TemplateActionsBuilder
 from notifications.services.actions import NotificationAction
 from notifications.services.factories import ContextObjectFactory, NotificationCreator
 from notifications.services.schemes import ActionName
-from notifications.services.template_loading import TemplateNotFoundError, TemplateLoader
+from notifications.services.template_loading import NotificationTemplateNotFoundError, NotificationTemplateLoader
 from notifications.services.utils import apply_template_to_notification, update_notification_footer
 
 logger = logging.getLogger('django')
@@ -18,14 +18,16 @@ logger = logging.getLogger('django')
 T = TypeVar('T', bound=models.Model)
 
 
-class NotificationServiceBase(Generic[T], metaclass=ABCMeta):
-    @abstractmethod
-    def create_notification(self, user: AbstractUser, related_object: T, **kwargs) -> Notification:
-        pass
+class NotificationServiceBase(ABC, Generic[T]):
+    """Abstract base class for notification services."""
 
     @abstractmethod
-    def get_notification(self, user: AbstractUser, related_object: T, **kwargs) -> Notification:
-        pass
+    def create_notification(self, user: AbstractUser, related_object: T, **kwargs: Any) -> Notification:
+        """Create a new notification."""
+
+    @abstractmethod
+    def get_notification(self, user: AbstractUser, related_object: T, **kwargs: Any) -> Optional[Notification]:
+        """Retrieve an existing notification."""
 
     @abstractmethod
     def update_notification_by_action(
@@ -34,17 +36,17 @@ class NotificationServiceBase(Generic[T], metaclass=ABCMeta):
             related_object: T,
             action_name: ActionName,
     ) -> Optional[Notification]:
-        pass
+        """Update notification based on user action."""
 
     @abstractmethod
-    def delete_notification(self, user: AbstractUser, related_object: T, **kwargs) -> None:
-        pass
+    def delete_notification(self, user: AbstractUser, related_object: T, **kwargs: Any) -> None:
+        """Delete a notification."""
 
 
-class NotificationService(NotificationServiceBase, Generic[T]):
+class NotificationService(NotificationServiceBase[T]):
     def __init__(
             self,
-            template_loader: TemplateLoader,
+            template_loader: NotificationTemplateLoader,
             factory: NotificationCreator,
     ):
         self._template_loader = template_loader
@@ -65,7 +67,7 @@ class NotificationService(NotificationServiceBase, Generic[T]):
                 object_id=related_object.id,
             ).latest()
         except Notification.DoesNotExist:
-            logger.warning(f"No notification found for {user} by {related_object}.")
+            logger.warning(f"No notification found for {user} by {related_object}.", exc_info=True)
             return None
 
     def update_notification_by_action(
@@ -91,7 +93,7 @@ class NotificationService(NotificationServiceBase, Generic[T]):
                 TemplateActionsBuilder(template)
             )
             notification.save()
-        except (KeyError, TemplateNotFoundError) as e:
+        except (KeyError, NotificationTemplateNotFoundError) as e:
             logger.error(f"Invalid action processing: {str(e)}.")
             update_notification_footer(
                 notification,
@@ -102,20 +104,21 @@ class NotificationService(NotificationServiceBase, Generic[T]):
 
     def delete_notification(self, user: AbstractUser, related_object: T, **kwargs):
         notification = self.get_notification(user, related_object)
-        print(notification)
         if not notification:
             return
         notification.delete()
 
 
-class NotificationContextServiceBase(metaclass=ABCMeta):
+class NotificationContextServiceBase(ABC):
+    """Abstract base class for notification context services."""
+
     @staticmethod
     @abstractmethod
     def create_context(
             notification: Notification,
             context_data: dict[str, models.Model]
     ) -> list[NotificationContextObject]:
-        pass
+        """Create notification context objects."""
 
 
 class NotificationContextService(NotificationContextServiceBase):
@@ -124,6 +127,9 @@ class NotificationContextService(NotificationContextServiceBase):
             notification: Notification,
             context_data: dict[str, models.Model]
     ) -> list[NotificationContextObject]:
+        if not context_data:
+            return []
+
         context_objects = ContextObjectFactory.create_context_objects(
             notification,
             context_data
