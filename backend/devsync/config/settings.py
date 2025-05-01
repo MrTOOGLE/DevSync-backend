@@ -328,3 +328,4 @@ CHANNEL_LAYERS = {
 
 # general
 PROJECT_INVITATION_EXPIRY_DAYS = 7
+INVITATION_IS_EXPIRED_MESSAGE = 'Приглашение истекло. Запросите новое или проигнорируйте!'

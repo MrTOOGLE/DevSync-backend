@@ -20,7 +20,7 @@ class ProjectMemberAdmin(admin.ModelAdmin):
 
 @admin.register(ProjectInvitation)
 class ProjectInvitationAdmin(admin.ModelAdmin):
-    list_display = ("project", "user", "invited_by")
+    list_display = ("project", "user", "invited_by", 'date_created')
     save_on_top = True
 
 @admin.register(Department)

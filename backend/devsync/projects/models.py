@@ -48,7 +48,7 @@ class ProjectMember(models.Model):
 
 class ProjectInvitation(models.Model):
     project = models.ForeignKey(Project, related_name='invitations', on_delete=models.CASCADE)
-    user = models.ForeignKey(User,related_name='project_invitations',on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User,related_name='project_invitations',on_delete=models.CASCADE)
     invited_by = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
     date_created = models.DateTimeField(auto_now_add=True)
 
@@ -62,9 +62,7 @@ class ProjectInvitation(models.Model):
         ordering = ['-date_created']
 
     def is_expired(self):
-        if now() >= self.date_created + timedelta(days=PROJECT_INVITATION_EXPIRY_DAYS):
-            return True
-        return False
+        return now() >= self.date_created + timedelta(days=PROJECT_INVITATION_EXPIRY_DAYS)
 
     def accept(self) -> None:
         ProjectMember.objects.get_or_create(project=self.project, user=self.user)

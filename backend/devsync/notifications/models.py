@@ -15,6 +15,19 @@ class VisibleNotificationManager(models.Manager):
         return super().get_queryset().filter(is_hidden=False)
 
 
+class NotificationContextObject(models.Model):
+    notification = models.ForeignKey('Notification', on_delete=models.CASCADE, related_name='context_objects')
+    name = models.CharField(max_length=64, blank=False, null=False)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
+    object_id = models.PositiveBigIntegerField(null=True, blank=True)
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['notification', 'name'], name='unique_notification'),
+        ]
+
+
 class Notification(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=128)
@@ -22,7 +35,6 @@ class Notification(models.Model):
     is_read = models.BooleanField(default=False)
     is_hidden = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    content_data = models.JSONField(default=dict)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
     object_id = models.PositiveBigIntegerField(null=True, blank=True)
     content_object = GenericForeignKey('content_type', 'object_id')
@@ -34,6 +46,7 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        get_latest_by = 'created_at'
         indexes = [
             models.Index(
                 name='user_visible_notifications_idx',
@@ -48,7 +61,11 @@ class Notification(models.Model):
     @property
     def formatted_message(self):
         try:
-            return self.message.format(**self.content_data, object=self.content_object)
+            context_data = {
+                context.name: context.content_object
+                for context in self.context_objects.all()
+            }
+            return self.message.format(**context_data)
         except (KeyError, AttributeError):
             return self.message
 

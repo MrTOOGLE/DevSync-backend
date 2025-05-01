@@ -1,10 +1,9 @@
 import json
+from abc import ABCMeta, abstractmethod
 from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
-from typing import Protocol, runtime_checkable
 
-from django.templatetags.static import static
 from rest_framework.exceptions import ParseError
 
 from config import settings
@@ -12,15 +11,16 @@ from notifications.services.schemes import TemplateSchema, TemplateActionSchema,
 from notifications.services.templates import NotificationTemplate, NotificationActionTemplate
 
 
-class TemplateNotFoundError(Exception):
+class NotificationTemplateNotFoundError(Exception):
     pass
 
 
-@runtime_checkable
-class TemplateLoaderProtocol(Protocol):
+class NotificationTemplateLoader(metaclass=ABCMeta):
+    @abstractmethod
     def load_templates(self) -> MappingProxyType[str, NotificationTemplate]:
         """Load and return all templates"""
 
+    @abstractmethod
     def get_template(self, name: str) -> NotificationTemplate:
         """Get specific template by name"""
 
@@ -31,10 +31,10 @@ _loaded_templates: dict[str, NotificationTemplate] = {}
 def get_template(name: str) -> NotificationTemplate:
     if name in _loaded_templates:
         return _loaded_templates[name]
-    raise TemplateNotFoundError(f"Template {name} not found.")
+    raise NotificationTemplateNotFoundError(f"Template {name} not found.")
 
 
-class JsonTemplateLoader:
+class JsonNotificationTemplateLoader(NotificationTemplateLoader):
     def __init__(self):
         self._templates: dict[str, NotificationTemplate] = {}
         self._templates_paths: list[Path] = []
@@ -60,7 +60,7 @@ class JsonTemplateLoader:
         try:
             return self._templates[name]
         except KeyError:
-            raise TemplateNotFoundError(f"Template {name} not found.")
+            raise NotificationTemplateNotFoundError(f"Template {name} not found.")
 
     def _load_templates_from_path(self, path: Path) -> None:
         with open(path, 'r') as file:
@@ -74,12 +74,9 @@ class JsonTemplateLoader:
     def _parse_template(cls, template_dict: dict, template_name: str) -> NotificationTemplate:
         try:
             validated_scheme = TemplateSchema(**template_dict)
-            app, model = validated_scheme.content_type.split(':')
             return NotificationTemplate(
                 title=validated_scheme.title,
                 message=validated_scheme.message,
-                content_type_app=app,
-                content_type_model=model,
                 actions=MappingProxyType(cls._parse_actions(validated_scheme.actions)),
                 footnote=validated_scheme.footnote,
             )
@@ -104,5 +101,4 @@ class JsonTemplateLoader:
             redirect_kwargs=MappingProxyType(action.redirect_kwargs),
             style=action.style,
             next_template=action.next_template,
-            new_related_object_id=action.new_related_object_id,
         )
