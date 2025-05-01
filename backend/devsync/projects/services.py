@@ -42,13 +42,13 @@ class ProjectInvitationService:
 
     def accept_invitation(self, user: AbstractUser, invitation: ProjectInvitation) -> None:
         self._handle_expired_invitation(user, invitation)
-        invitation.accept()
         self._notification_service.update_notification_by_action(user, invitation, 'accept')
+        invitation.accept()
 
     def reject_invitation(self, user: AbstractUser, invitation: ProjectInvitation) -> None:
         self._handle_expired_invitation(user, invitation)
-        invitation.reject()
         self._notification_service.update_notification_by_action(user, invitation, 'reject')
+        invitation.reject()
 
     def _handle_expired_invitation(self, user, invitation: ProjectInvitation):
         if not invitation.is_expired():
