@@ -17,11 +17,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Notification.visible_objects.filter(user=self.request.user)
 
-    def get_serializer_context(self):
-        return {
-            'request': self.request,
-        }
-
     @action(methods=['put'], detail=False)
     def mark_as_read(self, request, *args, **kwargs):
         Notification.objects.filter(

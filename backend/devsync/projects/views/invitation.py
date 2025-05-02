@@ -56,7 +56,8 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
 class InvitationViewSet(viewsets.ReadOnlyModelViewSet):
     renderer_classes = [ProjectInvitationListRenderer]
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'delete', 'head', 'options']
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+    serializer_class = ProjectInvitationSerializer
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -67,29 +68,8 @@ class InvitationViewSet(viewsets.ReadOnlyModelViewSet):
         )
         self._invitations_service = ProjectInvitationService(self._notification_service)
 
-    @property
-    def allowed_methods(self):
-        methods = super().allowed_methods
-        if self.action in ['accept', 'reject']:
-            methods.append('post')
-        return methods
-
     def get_queryset(self):
         return ProjectInvitation.objects.filter(user=self.request.user)
-
-    def list(self, request, *args, **kwargs):
-        invitations = self.get_queryset()
-        serializer = ProjectInvitationSerializer(invitations, many=True)
-        return Response(serializer.data)
-
-    def retrieve(self, request, pk=None, *args, **kwargs):
-        try:
-            invitation = self.get_queryset().get(pk=pk)
-        except ProjectInvitation.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND)
-
-        serializer = ProjectInvitationSerializer(invitation)
-        return Response(serializer.data)
 
     @action(methods=['post'], detail=True)
     def accept(self, request, pk=None):
