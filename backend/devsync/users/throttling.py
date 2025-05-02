@@ -1,3 +1,5 @@
+from typing import Optional
+
 from rest_framework.throttling import BaseThrottle
 from django.core.cache import cache
 from datetime import timedelta
@@ -8,8 +10,12 @@ from config import settings
 
 class IntervalThrottle(BaseThrottle):
     interval = timedelta(seconds=1)
+    methods: Optional[list[str]] = None
 
     def allow_request(self, request, view):
+        if self.methods and request.method.upper() not in [m.upper() for m in self.methods]:
+            return True
+
         cache_name = self._get_cache_key(request)
         last_request_time = cache.get(cache_name)
 
@@ -34,3 +40,4 @@ class IntervalThrottle(BaseThrottle):
 
 class VerificationCodeSendThrottle(IntervalThrottle):
     interval = timedelta(seconds=settings.EMAIL_VERIFICATION_CODE_RESEND_TIMEOUT)
+    methods = ['POST']
