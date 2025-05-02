@@ -34,7 +34,9 @@ INSTALLED_APPS = [
     'projects.apps.ProjectsConfig',
     'voting.apps.VotingConfig',
     'roles.apps.RolesConfig',
-    'notifications.apps.NotificationsConfig'
+    'notifications.apps.NotificationsConfig',
+
+    'django_cleanup.apps.CleanupConfig'
 ]
 
 MIDDLEWARE = [

@@ -1,10 +1,10 @@
-from rest_framework.pagination import PageNumberPagination
+from rest_framework import pagination
 from rest_framework.response import Response
 
 
-class PublicProjectPagination(PageNumberPagination):
+class UsersPagination(pagination.PageNumberPagination):
     page_size = 20
-    page_size_query_param = 'per_page'
+    page_size_query_param = 'page_size'
     max_page_size = 40
 
     def get_paginated_response(self, data):
@@ -15,5 +15,5 @@ class PublicProjectPagination(PageNumberPagination):
             },
             'count': self.page.paginator.count,
             'total_pages': self.page.paginator.num_pages,
-            'projects': data
+            'users': data
         })
