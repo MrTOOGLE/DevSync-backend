@@ -99,7 +99,7 @@ def notification_updated(sender, instance, created, **kwargs):
             'type': 'send_notification',
             'notification': {
                 'id': instance.id,
-                'type': 'UPDATE' if not created else 'CREATE',
+                'type': 'UPDATE' if not created else 'NEW',
                 'data': NotificationSerializer(instance).data
             }
         }
