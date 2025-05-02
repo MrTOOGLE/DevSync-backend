@@ -6,20 +6,22 @@
       "accept": {
         "type": "request",
         "text": "Подтвердить",
-        "viewname": "project-invitations-accept",
+        "viewname": "invitation-accept",
         "viewname_kwargs": {
-          "project_pk": "{object.project.id}"
+          "pk": "{object.id}"
         },
+        "method": "POST",
         "style": "primary",
         "next_template": "accept-invitation"
       },
       "reject": {
         "type": "request",
         "text": "Отклонить",
-        "viewname": "project-invitations-reject",
+        "viewname": "invitation-accept",
         "viewname_kwargs": {
-          "project_pk": "{object.project.id}"
+          "pk": "{object.id}"
         },
+        "method": "POST",
         "style": "secondary",
         "next_template": "reject-invitation"
       }

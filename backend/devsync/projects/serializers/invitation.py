@@ -41,13 +41,7 @@ class ProjectInvitationCreateSerializer(serializers.ModelSerializer):
 
 class ProjectInvitationActionSerializer(serializers.Serializer):
     def validate(self, attrs):
-        request = self.context.get('request')
-        project_pk = self.context.get('project_pk')
-
-        invitation = ProjectInvitation.objects.filter(
-            project_id=project_pk,
-            user=request.user,
-        ).first()
+        invitation: ProjectInvitation = self.context.get('invitation')
 
         if not invitation:
             raise serializers.ValidationError(
@@ -55,10 +49,13 @@ class ProjectInvitationActionSerializer(serializers.Serializer):
                 code="no_invitation"
             )
 
-        if invitation.is_expired():
+        if ProjectMember.objects.filter(
+                project=invitation.project,
+                user=invitation.user
+        ).exists():
             raise serializers.ValidationError(
-                {"detail": "Срок действия данного приглашения истек."},
-                code="expired_invitation"
+                {"detail": "Вы уже состоите в данном проекте."},
+                code="no_invitation"
             )
 
         attrs['invitation'] = invitation

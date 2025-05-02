@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Optional, ClassVar
 
-from notifications.services.schemes import ActionType, ActionStyle, ActionName
+from notifications.services.schemes import ActionType, ActionStyle, ActionName, HttpMethod
 
 
 @dataclass(frozen=True)
@@ -14,6 +14,7 @@ class NotificationActionTemplate:
     viewname_kwargs: MappingProxyType[str, str] = MappingProxyType({})
     redirect: Optional[str] = None
     redirect_kwargs: MappingProxyType[str, str] = MappingProxyType({})
+    method: Optional[HttpMethod] = None
     next_template: Optional[str] = None
 
 

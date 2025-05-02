@@ -7,12 +7,14 @@ from .views import (
     ProjectViewSet,
     ProjectMemberViewSet,
     DepartmentViewSet,
-    ProjectInvitationViewSet
+    ProjectInvitationViewSet,
+    ProjectMemberDepartmentViewSet,
+    InvitationViewSet
 )
-from .views.member import ProjectMemberDepartmentViewSet
 
 router = DefaultRouter()
 router.register(r'projects', ProjectViewSet, basename='project')
+router.register(r'invitations', InvitationViewSet, basename='invitation')
 
 projects_router = routers.NestedSimpleRouter(router, r'projects', lookup='project')
 projects_router.register(r'members', ProjectMemberViewSet, basename='project-members')
@@ -25,6 +27,7 @@ members_router.register(r'departments', ProjectMemberDepartmentViewSet, basename
 members_router.register(r'roles', ProjectMemberRoleViewSet, basename='project-member-roles')
 
 urlpatterns = [
+
     path('', include(router.urls)),
     path('', include(projects_router.urls)),
     path('', include(members_router.urls)),

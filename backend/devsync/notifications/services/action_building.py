@@ -55,5 +55,7 @@ class TemplateActionsBuilder:
         payload: dict[str, Any] = {'url': url} if url else {}
         if action.next_template:
             payload['next_template'] = action.next_template
+        if action.type == 'request' and action.method:
+            payload['method'] = action.method
 
         return payload

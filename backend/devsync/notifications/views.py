@@ -8,6 +8,7 @@ from notifications.serializers import NotificationSerializer
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
+    http_method_names = ['get', 'delete', 'head', 'options', 'trace']
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
     renderer_classes = [NotificationRenderer]

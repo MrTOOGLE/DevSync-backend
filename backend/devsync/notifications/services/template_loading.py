@@ -97,6 +97,7 @@ class JsonNotificationTemplateLoader(NotificationTemplateLoader):
             text=action.text,
             viewname=action.viewname,
             viewname_kwargs=MappingProxyType(action.viewname_kwargs),
+            method=action.method,
             redirect=action.redirect,
             redirect_kwargs=MappingProxyType(action.redirect_kwargs),
             style=action.style,
