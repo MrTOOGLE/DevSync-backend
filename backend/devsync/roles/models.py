@@ -12,6 +12,10 @@ class Role(models.Model):
     rank = models.IntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(100)])
     permissions = models.ManyToManyField("Permission", through='RolePermission', related_name="+", blank=True)
     is_everyone = models.BooleanField(default=False)
+    date_created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-date_created",)
 
     def __str__(self):
         return f'Role {self.name} (id: {self.id})'
