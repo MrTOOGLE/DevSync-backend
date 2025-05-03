@@ -6,9 +6,8 @@ from projects.models import Project
 from projects.permissions import ProjectAccessPermission
 
 
-class ProjectBasedViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.IsAuthenticated, ProjectAccessPermission]
-
+# noinspection PyUnresolvedReferences
+class ProjectBasedMixin:
     def get_project(self):
         project_id = self.kwargs.get('project_pk')
         project = get_object_or_404(Project, pk=project_id)
@@ -21,7 +20,11 @@ class ProjectBasedViewSet(viewsets.ModelViewSet):
         return context
 
 
-class BaseProjectMembershipViewSet(ProjectBasedViewSet):
+class ProjectBasedModelViewSet(ProjectBasedMixin, viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated, ProjectAccessPermission]
+
+
+class BaseProjectMembershipViewSet(ProjectBasedModelViewSet):
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
     member_lookup_field = 'member_pk'
     relation_model = None

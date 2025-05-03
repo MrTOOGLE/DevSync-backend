@@ -6,10 +6,10 @@ from projects.models import ProjectMember, MemberDepartment
 from projects.renderers import ProjectMemberListRenderer, DepartmentListRenderer
 from projects.serializers import ProjectMemberSerializer
 from projects.serializers.department import DepartmentMemberSerializer
-from projects.views.base import ProjectBasedViewSet, BaseProjectMembershipViewSet
+from projects.views.base import ProjectBasedModelViewSet, BaseProjectMembershipViewSet
 
 
-class ProjectMemberViewSet(ProjectBasedViewSet):
+class ProjectMemberViewSet(ProjectBasedModelViewSet):
     http_method_names = ['get', 'delete', 'head', 'options']
     renderer_classes = [ProjectMemberListRenderer]
     serializer_class = ProjectMemberSerializer

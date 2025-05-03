@@ -2,10 +2,10 @@ from projects.models import Department
 from projects.renderers import DepartmentListRenderer
 from projects.serializers import DepartmentWithMembersSerializer
 from projects.serializers.department import DepartmentSerializer
-from projects.views.base import ProjectBasedViewSet
+from projects.views.base import ProjectBasedModelViewSet
 
 
-class DepartmentViewSet(ProjectBasedViewSet):
+class DepartmentViewSet(ProjectBasedModelViewSet):
     renderer_classes = [DepartmentListRenderer]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 

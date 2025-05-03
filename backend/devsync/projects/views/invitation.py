@@ -14,10 +14,10 @@ from projects.serializers import (
     ProjectInvitationActionSerializer
 )
 from projects.services import ProjectInvitationService, ProjectInvitationNotificationService
-from projects.views.base import ProjectBasedViewSet
+from projects.views.base import ProjectBasedModelViewSet
 
 
-class ProjectInvitationViewSet(ProjectBasedViewSet):
+class ProjectInvitationViewSet(ProjectBasedModelViewSet):
     renderer_classes = [ProjectInvitationListRenderer]
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
 

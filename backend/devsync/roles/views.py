@@ -1,10 +1,10 @@
-from projects.views.base import ProjectBasedViewSet, BaseProjectMembershipViewSet
+from projects.views.base import ProjectBasedModelViewSet, BaseProjectMembershipViewSet
 from roles.models import Role, MemberRole
 from roles.renderers import RoleListRenderer
-from roles.serializers import RoleSerializer, RoleMemberSerializer, RoleWithMembersSerializer
+from roles.serializers import RoleSerializer, MemberRoleSerializer, RoleWithMembersSerializer
 
 
-class RoleViewSet(ProjectBasedViewSet):
+class RoleViewSet(ProjectBasedModelViewSet):
     renderer_classes = [RoleListRenderer]
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     serializer_class = RoleSerializer
@@ -28,5 +28,8 @@ class ProjectMemberRoleViewSet(BaseProjectMembershipViewSet):
     relation_model = MemberRole
     relation_field = 'role'
     renderer_classes = [RoleListRenderer]
-    serializer_class = RoleMemberSerializer
+    serializer_class = MemberRoleSerializer
     not_found_message = "Пользователь не имеет данную роль."
+
+
+class RolePermissionsViewSet()
