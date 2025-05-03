@@ -61,6 +61,3 @@ class PermissionsConfig:
                 categories[category] = []
             categories[category].append(codename)
         return categories
-
-
-print(PermissionsConfig.get_permissions_meta())

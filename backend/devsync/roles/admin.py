@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from roles.models import Role, RolePermission, MemberRole
+from roles.models import Role, Permission, MemberRole, RolePermission
 
 
 @admin.register(Role)
@@ -12,10 +12,14 @@ class RoleAdmin(admin.ModelAdmin):
     save_on_top = True
 
 
-@admin.register(RolePermission)
-class RolePermissionAdmin(admin.ModelAdmin):
+@admin.register(Permission)
+class PermissionAdmin(admin.ModelAdmin):
     list_display = ('codename', 'name', 'category', 'description')
     search_fields = ['codename']
+
+@admin.register(RolePermission)
+class RolePermissionAdmin(admin.ModelAdmin):
+    list_display = ('role', 'permission')
 
 
 @admin.register(MemberRole)

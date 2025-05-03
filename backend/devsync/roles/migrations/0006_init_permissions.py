@@ -2,7 +2,7 @@
 
 from django.db import migrations
 
-from roles.models import RolePermission
+from roles.models import Permission
 from roles.services.permissions_config import PermissionsConfig
 
 
@@ -11,20 +11,20 @@ def init_permissions(*args):
     permissions = []
     for codename, permission_data in permissions_data.items():
         permissions.append(
-            RolePermission(
+            Permission(
                 codename=codename,
                 name=permission_data.name,
                 description=permission_data.description,
                 category=permission_data.category,
             )
         )
-    RolePermission.objects.bulk_create(permissions, ignore_conflicts=True)
+    Permission.objects.bulk_create(permissions, ignore_conflicts=True)
 
 
 def reset_permissions(*args):
     permissions_data = PermissionsConfig.get_permissions_meta()
     for codename in permissions_data:
-        RolePermission.objects.filter(codename=codename).delete()
+        Permission.objects.filter(codename=codename).delete()
 
 
 class Migration(migrations.Migration):
