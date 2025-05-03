@@ -2,7 +2,7 @@ import json
 import logging
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated
+from typing import Annotated, Optional
 
 from pydantic import BaseModel, ValidationError
 from pydantic.fields import Field
@@ -36,7 +36,7 @@ class PermissionsConfig:
         return MappingProxyType(cls._permissions_meta)
 
     @classmethod
-    def _load_permissions_meta(cls):
+    def _load_permissions_meta(cls) -> None:
         with open(cls._permissions_json_filepath, 'r') as file:
             try:
                 json_data = json.load(file)
@@ -47,17 +47,6 @@ class PermissionsConfig:
                 raise
 
     @classmethod
-    def get_meta(cls, codename: str) -> dict[str, str]:
+    def get_permission_meta(cls, codename: str) -> Optional[PermissionData]:
         """Return the metadata of a specific permission with the given codename"""
-        return cls._permissions_meta.get(codename, {})
-
-    @classmethod
-    def get_codenames_by_category(cls) -> dict[str, list[str]]:
-        """Return codename's permissions grouped by categories."""
-        categories = {}
-        for codename, meta in cls._permissions_meta.items():
-            category = meta['category']
-            if category not in categories:
-                categories[category] = []
-            categories[category].append(codename)
-        return categories
+        return cls._permissions_meta.get(codename, None)
