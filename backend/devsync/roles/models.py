@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 
 from projects.models import Project
@@ -19,7 +19,7 @@ class Role(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ("-date_created",)
+        ordering = ('project', 'rank')
 
     def __str__(self):
         return f'Role {self.name} (id: {self.id})'
@@ -67,6 +67,7 @@ class StaticPermissionManager(models.Manager):
         if not self._cache_loaded:
             self._permissions = list(super().get_queryset().all())
             self._cache_loaded = True
+
         return self._permissions
 
 
@@ -85,6 +86,15 @@ class Permission(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.codename})"
+
+
+@receiver(pre_delete, sender=Role)
+def forbid_delete_everyone_role(sender, instance, **kwargs):
+    if instance.is_everyone:
+        raise models.ProtectedError(
+            "You can't delete @everyone role.",
+            instance
+        )
 
 
 @receiver(signal=post_save, sender=Project)
