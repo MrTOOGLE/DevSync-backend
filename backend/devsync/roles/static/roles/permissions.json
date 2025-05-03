@@ -45,13 +45,13 @@
     "name": "Создание голосований",
     "category": "Голосование",
     "description": "Публикация и редактирование собственных голосований за предложения.",
-    "default": false
+    "default": true
   },
   "voting_vote": {
     "name": "Участие в голосованиях",
     "category": "Голосование",
     "description": "Возможность голосовать за предложения в проекте.",
-    "default": false
+    "default": true
   },
   "comment_manage": {
     "name": "Управление комментариями",
@@ -63,7 +63,7 @@
     "name": "Написание комментариев",
     "category": "Голосование",
     "description": "Добавление и удаление комментариев к обсуждениям голосований.",
-    "default": false
+    "default": true
   },
   "task_manage": {
     "name": "Полное управление задачами",
@@ -81,18 +81,18 @@
     "name": "Просмотр всех задач",
     "category": "Задача",
     "description": "Доступ ко всем задачам проекта.",
-    "default": false
+    "default": true
   },
   "task_view_department": {
     "name": "Просмотр задач отделов",
     "category": "Задача",
     "description": "Видимость общих задач, а также задач отделов, в которых состоит пользователь.",
-    "default": false
+    "default": true
   },
   "task_view_assigned": {
     "name": "Просмотр своих задач",
     "category": "Задача",
     "description": "Доступ только к назначенным пользователю задачам.",
-    "default": false
+    "default": true
   }
 }
