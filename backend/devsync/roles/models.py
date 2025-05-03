@@ -19,7 +19,7 @@ class Role(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ('project', 'rank')
+        ordering = ('-rank', )
 
     def __str__(self):
         return f'Role {self.name} (id: {self.id})'
