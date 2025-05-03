@@ -32,4 +32,4 @@ class ProjectMemberRoleViewSet(BaseProjectMembershipViewSet):
     not_found_message = "Пользователь не имеет данную роль."
 
 
-class RolePermissionsViewSet()
+
