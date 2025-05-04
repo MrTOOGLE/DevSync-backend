@@ -1,7 +1,7 @@
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, cast
 
 from django.db import transaction
-from django.db.models import QuerySet, Case, When, Value, BooleanField
+from django.db.models import QuerySet
 from typing_extensions import overload
 
 from projects.models import Project
@@ -27,16 +27,16 @@ def create_everyone_role(project: Project) -> Role:
 
 
 @overload
-def get_role_permissions(role: Role) -> QuerySet[Permission]:
+def get_role_permissions(role: Role) -> QuerySet[RolePermission]:
     pass
 
 
 @overload
-def get_role_permissions(role: int) -> QuerySet[Permission]:
+def get_role_permissions(role: int) -> QuerySet[RolePermission]:
     pass
 
 
-def get_role_permissions(role: Role | int) -> QuerySet[Permission]:
+def get_role_permissions(role: Role | int) -> QuerySet[RolePermission]:
     """
     Retrieves all permissions annotated with their current values for specified role.
 
@@ -48,16 +48,30 @@ def get_role_permissions(role: Role | int) -> QuerySet[Permission]:
         indicating current permission state for the role
     """
     role_id = role.id if isinstance(role, Role) else role
-    return Permission.objects.annotate(
-        value=Case(
-            When(
-                rolepermission__role_id=role_id,
-                then='rolepermission__value'
-            ),
-            default=Value(None),
-            output_field=BooleanField(null=True)
-        )
+    defined_permissions = get_role_defined_permissions(role_id)
+    role_permissions = [*defined_permissions]
+
+    for permission in Permission.objects.all():
+        permission_id = permission.codename
+        if permission_id not in defined_permissions:
+            role_permissions.append(
+                RolePermission(
+                    role_id=role_id,
+                    permission_id=permission_id,
+                    value=None
+                )
+            )
+    return defined_permissions.union(role_permissions)
+"""Permission.objects.annotate(
+    value=Case(
+        When(
+            rolepermission__role_id=role_id,
+            then='rolepermission__value'
+        ),
+        default=Value(None),
+        output_field=BooleanField(null=True)
     )
+)"""
 
 
 @overload
@@ -85,6 +99,7 @@ def update_role_permissions(role: Role | int, permissions: Mapping[str, bool | N
     role_id = role.id if isinstance(role, Role) else role
 
     permissions_to_update = get_permissions_to_update(role_id, permissions)
+    print(permissions_to_update)
     bulk_update_permission_roles(permissions_to_update)
 
     role_permissions = RolePermission.objects.filter(
@@ -120,12 +135,16 @@ def get_permissions_to_update(role: Role | int, permissions: Mapping[str, bool |
            - Existing permission being unset (set to None)
     """
     role_id = role.id if isinstance(role, Role) else role
-    defined_permissions = get_role_defined_permissions(role_id)
+    defined_permissions = tuple(get_role_defined_permissions(role_id))
+    defined_permissions_map = {
+        cast(str, perm.permission_id):perm.value
+        for perm in defined_permissions
+    }
     permissions_to_update = []
     for codename, value in permissions.items():
-        if value is None and codename not in defined_permissions:
+        if value is None and codename not in defined_permissions_map:
             continue
-        if codename in defined_permissions and value == defined_permissions[codename]:
+        if codename in defined_permissions_map and value == defined_permissions_map[codename]:
             continue
         permissions_to_update.append(
             RolePermission(
@@ -136,7 +155,7 @@ def get_permissions_to_update(role: Role | int, permissions: Mapping[str, bool |
         )
     return permissions_to_update
 
-def get_role_defined_permissions(role: Role | int) -> dict[str, bool | None]:
+def get_role_defined_permissions(role: Role | int) -> QuerySet[RolePermission]:
     """
     Retrieves dict of permission codenames and values that are explicitly defined for a role.
 
@@ -144,16 +163,14 @@ def get_role_defined_permissions(role: Role | int) -> dict[str, bool | None]:
         role: Either a Role object or role ID
 
     Returns:
-        dict[str, bool | None]: Dict of permission codenames and values
+        QuerySet[RolePermission]: QuerySet of role permission with `permission_id` and
+        `value` only.
     """
     role_id = role.id if isinstance(role, Role) else role
     defined_permissions = RolePermission.objects.filter(
         role_id=role_id,
-    ).all()
-    return {
-        perm.permission_id: perm.value
-        for perm in defined_permissions
-    }
+    ).only('permission_id', 'value').all()
+    return defined_permissions
 
 
 def bulk_update_permission_roles(permissions: Sequence[RolePermission]) -> None:
@@ -171,3 +188,6 @@ def bulk_update_permission_roles(permissions: Sequence[RolePermission]) -> None:
         unique_fields=('role_id', 'permission_id'),
         update_fields=('value',)
     )
+
+
+

@@ -10,13 +10,14 @@ from projects.views.base import (
     BaseProjectMembershipViewSet,
     ProjectBasedMixin
 )
-from roles.models import Role, MemberRole, RolePermission
+from roles.models import Role, MemberRole
 from roles.renderers import RoleListRenderer, RolePermissionsRenderer
 from roles.serializers import (
     RoleSerializer,
     MemberRoleSerializer,
     RoleWithMembersSerializer,
-    PermissionSerializer, RolePermissionUpdateSerializer, RolePermissionSerializer
+    RolePermissionUpdateSerializer,
+    RolePermissionSerializer
 )
 from roles.services.services import get_role_permissions, update_role_permissions
 
@@ -55,7 +56,7 @@ class RolePermissionsViewSet(
     GenericViewSet
 ):
     lookup_url_kwarg = 'role_pk'
-    serializer_class = PermissionSerializer
+    serializer_class = RolePermissionSerializer
     renderer_classes = (RolePermissionsRenderer,)
 
     def get_queryset(self):
