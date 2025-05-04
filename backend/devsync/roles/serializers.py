@@ -82,7 +82,7 @@ class PermissionSerializer(serializers.ModelSerializer):
 class _PermissionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Permission
-        fields = ['codename', 'name']
+        fields = ['codename', 'name', 'category', 'description']
 
 
 class RolePermissionSerializer(serializers.ModelSerializer):
@@ -92,10 +92,11 @@ class RolePermissionSerializer(serializers.ModelSerializer):
         model = RolePermission
         fields = ['permission', 'value']
 
-class RolePermissionUpdateSerializer(serializers.Serializer):
+
+class PermissionsSerializer(serializers.Serializer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._codenames: set[str] = set(Permission.objects.values_list('codename', flat=True))
+        self._codenames: set[str] = set(p.codename for p in Permission.objects.cached())
 
     def get_fields(self):
         return {

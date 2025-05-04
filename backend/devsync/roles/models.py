@@ -59,19 +59,20 @@ class RolePermission(models.Model):
 
 
 class StaticPermissionManager(models.Manager):
-    _cache = None
+    _cached_permissions = None
 
     def get_queryset(self):
-        if self._cache is None:
-            self._cache = list(super().get_queryset().all())
-        return self._get_queryset_from_cache()
+        if StaticPermissionManager._cached_permissions is None:
+            qs = super().get_queryset()
+            StaticPermissionManager._cached_permissions = list(qs)
+            return qs
+        return super().get_queryset()
 
-    def _get_queryset_from_cache(self):
-        from django.db.models.query import QuerySet
-
-        qs = QuerySet(model=self.model)
-        qs._result_cache = self._cache
-        return qs
+    @classmethod
+    def cached(cls) -> list['Permission']:
+        if cls._cached_permissions is None:
+            cls._cached_permissions = list(Permission.objects.all())
+        return cls._cached_permissions
 
 
 class Permission(models.Model):
@@ -104,6 +105,6 @@ def init_everyone_role(sender, instance, created, **kwargs):
     if not created:
         return
 
-    from roles.services.utils import create_everyone_role
+    from roles.services.services import create_everyone_role
 
     create_everyone_role(instance).save()

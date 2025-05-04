@@ -13,7 +13,7 @@ from .views import (
 from roles.views import (
     RoleViewSet,
     ProjectMemberRoleViewSet,
-    RolePermissionsViewSet
+    RolePermissionsViewSet, MemberPermissionsViewSet
 )
 
 router = DefaultRouter()
@@ -29,7 +29,7 @@ projects_router.register(r'roles', RoleViewSet, basename='project-roles')
 members_router = routers.NestedSimpleRouter(projects_router, r'members', lookup='member')
 members_router.register(r'departments', ProjectMemberDepartmentViewSet, basename='project-member-departments')
 members_router.register(r'roles', ProjectMemberRoleViewSet, basename='project-member-roles')
-
+members_router.register(r'permissions', MemberPermissionsViewSet, basename='project-member-permissions')
 roles_router = routers.NestedSimpleRouter(projects_router, r'roles', lookup='role')
 roles_router.register(r'permissions', RolePermissionsViewSet, basename='role-permissions')
 urlpatterns = [
