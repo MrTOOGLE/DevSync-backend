@@ -28,7 +28,7 @@ class TemplateActionsBuilder:
     @classmethod
     def _build_action(cls, notification: Notification, action: NotificationActionTemplate) -> NotificationAction:
         url = cls._build_url(notification, action) if action.viewname else None
-        payload = cls._build_payload(notification, action, url)
+        payload = cls._build_payload(action, url)
 
         return NotificationAction(
             type=action.type,
@@ -51,14 +51,11 @@ class TemplateActionsBuilder:
         return int(formatted) if formatted.isdigit() else formatted
 
     @staticmethod
-    def _build_payload(notification: Notification, action: NotificationActionTemplate, url: str | None) -> dict:
+    def _build_payload(action: NotificationActionTemplate, url: str | None) -> dict:
         payload: dict[str, Any] = {'url': url} if url else {}
         if action.next_template:
             payload['next_template'] = action.next_template
-        if action.new_related_object_id:
-            payload['new_related_object_id'] = int(
-                action.new_related_object_id.format(
-                    object=notification.content_object
-                )
-            )
+        if action.type == 'request' and action.method:
+            payload['method'] = action.method
+
         return payload

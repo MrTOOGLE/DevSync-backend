@@ -7,9 +7,6 @@ class PublicProjectPagination(PageNumberPagination):
     page_size_query_param = 'per_page'
     max_page_size = 40
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def get_paginated_response(self, data):
         return Response({
             'links': {

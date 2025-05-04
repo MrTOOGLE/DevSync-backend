@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -49,7 +48,7 @@ class ProjectMember(models.Model):
 
 class ProjectInvitation(models.Model):
     project = models.ForeignKey(Project, related_name='invitations', on_delete=models.CASCADE)
-    user = models.ForeignKey(User,related_name='project_invitations',on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User,related_name='project_invitations',on_delete=models.CASCADE)
     invited_by = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
     date_created = models.DateTimeField(auto_now_add=True)
 
@@ -63,9 +62,7 @@ class ProjectInvitation(models.Model):
         ordering = ['-date_created']
 
     def is_expired(self):
-        if now() >= self.date_created + timedelta(days=PROJECT_INVITATION_EXPIRY_DAYS):
-            return True
-        return False
+        return now() >= self.date_created + timedelta(days=PROJECT_INVITATION_EXPIRY_DAYS)
 
     def accept(self) -> None:
         ProjectMember.objects.get_or_create(project=self.project, user=self.user)
@@ -100,51 +97,6 @@ class MemberDepartment(models.Model):
 
     def __str__(self):
         return f'{self.user} - {self.department}'
-
-
-class Role(models.Model):
-    name = models.CharField(max_length=100)
-    project = models.ForeignKey(Project, related_name='roles', on_delete=models.CASCADE)
-    color = models.CharField(max_length=7, default="#000000")
-    department = models.ForeignKey(Department, related_name='roles', on_delete=models.CASCADE, null=True, blank=True)
-    rank = models.IntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(100)])
-
-    def __str__(self):
-        return f'{self.name} (Project: {self.project.title}, Department: {self.department.title if self.department else "N/A"})'
-
-
-class MemberRole(models.Model):
-    role = models.ForeignKey(Role, related_name='members', on_delete=models.CASCADE)
-    user = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
-
-    def __str__(self):
-        return f'{self.user} - {self.role}'
-
-
-class RolePermissions(models.Model):
-    role = models.OneToOneField(Role, related_name='permissions', on_delete=models.CASCADE)
-    all_permissions = models.BooleanField(default=False)
-    manage_project = models.BooleanField(default=False)
-    manage_members = models.BooleanField(default=False)
-    manage_members_in_department = models.BooleanField(default=False)
-    manage_roles = models.BooleanField(default=False)
-    manage_roles_in_department = models.BooleanField(default=False)
-    assign_roles = models.BooleanField(default=False)
-    assign_roles_in_department = models.BooleanField(default=False)
-    manage_departments = models.BooleanField(default=False)
-    manage_department = models.BooleanField(default=False)
-    manage_tasks = models.BooleanField(default=False)
-    manage_tasks_in_department = models.BooleanField(default=False)
-    add_tasks = models.BooleanField(default=True)
-    add_tasks_in_department = models.BooleanField(default=True)
-    manage_votings = models.BooleanField(default=False)
-    add_voting = models.BooleanField(default=True)
-    vote_in_voting = models.BooleanField(default=True)
-    manage_comments = models.BooleanField(default=False)
-    view_audit = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"Permissions for {self.role.name} ({self.role.project})"
 
 
 @receiver(post_save, sender=Project)

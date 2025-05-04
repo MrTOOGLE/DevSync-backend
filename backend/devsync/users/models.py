@@ -34,6 +34,9 @@ class User(AbstractUser):
 
     objects = CustomUserManager()
 
+    class Meta:
+        ordering = ["-id"]
+
     @property
     def username(self):
         return self.get_username()

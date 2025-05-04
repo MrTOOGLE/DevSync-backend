@@ -15,7 +15,3 @@ class ProjectInvitationListRenderer(ListRenderer):
 
 class DepartmentListRenderer(ListRenderer):
     wrapper_key = 'departments'
-
-
-class RoleListRenderer(ListRenderer):
-    wrapper_key = 'roles'

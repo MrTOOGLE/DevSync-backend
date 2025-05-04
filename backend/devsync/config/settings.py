@@ -33,7 +33,10 @@ INSTALLED_APPS = [
     'api.apps.ApiConfig',
     'projects.apps.ProjectsConfig',
     'voting.apps.VotingConfig',
-    'notifications.apps.NotificationsConfig'
+    'roles.apps.RolesConfig',
+    'notifications.apps.NotificationsConfig',
+
+    'django_cleanup.apps.CleanupConfig'
 ]
 
 MIDDLEWARE = [
@@ -327,3 +330,4 @@ CHANNEL_LAYERS = {
 
 # general
 PROJECT_INVITATION_EXPIRY_DAYS = 7
+INVITATION_IS_EXPIRED_MESSAGE = 'Приглашение истекло. Запросите новое или проигнорируйте!'
