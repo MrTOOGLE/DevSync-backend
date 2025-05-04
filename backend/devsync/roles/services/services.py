@@ -312,7 +312,7 @@ class ParamGetter(Protocol[P, R]):
         pass
 
 
-def check_permission(
+def check_permissions(
         *permissions: PermissionsEnum | str,
         project_id_param: str = 'project_pk',
         check_rank: ParamGetter[P, int] | None = None,

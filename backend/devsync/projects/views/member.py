@@ -8,7 +8,7 @@ from projects.serializers import ProjectMemberSerializer
 from projects.serializers.department import DepartmentMemberSerializer
 from projects.views.base import ProjectBasedModelViewSet, BaseProjectMembershipViewSet
 from roles.services.enum import PermissionsEnum
-from roles.services.services import check_permission
+from roles.services.services import check_permissions
 
 
 class ProjectMemberViewSet(ProjectBasedModelViewSet):
@@ -28,7 +28,7 @@ class ProjectMemberViewSet(ProjectBasedModelViewSet):
             user_id=self.kwargs['pk']
         )
 
-    @check_permission(
+    @check_permissions(
         PermissionsEnum.MEMBER_MANAGE,
         check_rank=lambda view, *args, **kwargs: args[0].user_id
     )
