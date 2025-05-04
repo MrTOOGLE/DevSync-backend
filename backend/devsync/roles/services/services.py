@@ -1,7 +1,11 @@
-from typing import Mapping, Sequence, cast
+import functools
+from typing import Mapping, Sequence, cast, TypeVar, Callable
 
 from django.db import transaction, models
 from django.db.models import QuerySet
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.request import Request
+from typing_extensions import ParamSpec
 
 from roles.models import Role, Permission, RolePermission
 from roles.services.enum import PermissionsEnum
@@ -111,7 +115,7 @@ def get_permissions_to_update(role: Role | int, permissions: Mapping[str, bool |
     """
     role_id = role.id if isinstance(role, Role) else role
     defined_permissions = get_role_defined_permissions(role_id)
-    existing_map = {cast(str, rp.permission_id):rp.value for rp in defined_permissions}
+    existing_map = {cast(str, rp.permission_id): rp.value for rp in defined_permissions}
     permissions_to_update = []
 
     for codename, value in permissions.items():
@@ -127,6 +131,7 @@ def get_permissions_to_update(role: Role | int, permissions: Mapping[str, bool |
             )
         )
     return permissions_to_update
+
 
 def get_role_defined_permissions(role: Role | int) -> QuerySet[RolePermission]:
     """
@@ -197,7 +202,6 @@ def _get_default_permission_values(permissions: models.QuerySet) -> dict[str, bo
     return {p.codename: p.default_value for p in permissions}
 
 
-
 def _get_user_roles_with_permissions(project_id: int, user_id: int) -> QuerySet[Role]:
     """
     Get all relevant roles for user with prefetched permissions.
@@ -254,34 +258,107 @@ def _fill_missing_with_defaults(
         if value is None:
             permissions_map[codename] = default_values.get(codename)
 
+
 def has_permission(project_id: int, user_id: int, permission: PermissionsEnum | str) -> bool:
     """
     Check if a user has a specific permission in a project.
-
-    This function verifies whether the given user possesses the specified permission
-    within the context of the specified project. It handles both enum-based permissions
-    and raw string permission codes.
+    Automatically grants permission if user has PROJECT_MANAGE rights.
 
     Args:
-        project_id: The ID of the project where permission should be checked
-        user_id: The ID of the user whose permissions are being verified
-        permission: Either a PermissionsEnum member or a string representing
-                  the permission codename to check
+        project_id: ID of the project to check permissions in
+        user_id: ID of the user to check permissions for
+        permission: Permission to check (enum or string codename)
 
     Returns:
-        bool: True if the user has the permission enabled, False otherwise.
-              Returns False if the permission is not found in the user's permissions.
+        bool: True if user has either:
+              - The requested permission enabled
+              - PROJECT_MANAGE privilege
+              False otherwise
 
     Examples:
+        # Regular permission check
         >>> has_permission(123, 456, PermissionsEnum.VOTING_CREATE)
         True
+
+        # String permission check
         >>> has_permission(123, 456, "voting_create")
         True
-        >>> has_permission(123, 456, "nonexistent_permission")
-        False
+
+        # Admin override check
+        >>> has_permission(123, 456, "any_permission")
+        False  # True if user has PROJECT_MANAGE
     """
 
     perm_codename = permission.value if isinstance(permission, PermissionsEnum) else permission
     all_permissions = get_member_permissions(project_id, user_id)
 
-    return all_permissions.get(perm_codename, False)
+    return (
+            all_permissions.get(perm_codename, False) or
+            all_permissions.get(PermissionsEnum.PROJECT_MANAGE.value, False)
+    )
+
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def check_permission(
+        *permissions: PermissionsEnum | str,
+        project_id_param: str = 'project_pk'
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """
+    Decorator to verify user permissions before executing a view method.
+    Automatically checks permissions against the requesting user.
+
+    Args:
+        *permissions: One or more permissions to check (OR logic)
+        project_id_param: Keyword argument name for project ID in URL
+
+    Returns:
+        Decorated view method with permission checking
+
+    Raises:
+        ValueError: If request object or project ID is missing/invalid
+        PermissionDenied: If user lacks all required permissions
+
+    Examples:
+        # Basic usage
+        @check_permission(PermissionsEnum.VOTING_VOTE)
+        def vote(self, request, project_pk):
+            ...
+
+        # Multiple permissions (OR)
+        @check_permission('edit_content', 'admin_access')
+        def edit(self, request, project_pk):
+            ...
+    """
+
+    def decorator(view_method: Callable[P, R]) -> Callable[P, R]:
+        @functools.wraps(view_method)
+        def wrapper(*args, **kwargs) -> R:
+            request = next(
+                (arg for arg in args if isinstance(arg, Request)),
+                kwargs.get('request')
+            )
+            if request is None:
+                raise ValueError("Request object not found in arguments")
+            try:
+                project_id = int(kwargs[project_id_param])
+                user_id = request.user.id
+            except (KeyError, ValueError) as e:
+                raise ValueError(
+                    f"Missing or invalid ID parameter: {project_id_param}"
+                ) from e
+            has_any = any(
+                has_permission(project_id, user_id, perm)
+                for perm in permissions
+            )
+            if not has_any:
+                raise PermissionDenied(
+                    detail=f"Missing required permission: need any of {permissions}"
+                )
+            return view_method(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
