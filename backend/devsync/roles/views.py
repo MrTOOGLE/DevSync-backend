@@ -9,13 +9,13 @@ from projects.views.base import (
     BaseProjectMembershipViewSet,
     ProjectBasedMixin
 )
-from roles.models import Role, MemberRole
+from roles.models import Role, MemberRole, RolePermission
 from roles.renderers import RoleListRenderer, RolePermissionsRenderer
 from roles.serializers import (
     RoleSerializer,
     MemberRoleSerializer,
     RoleWithMembersSerializer,
-    PermissionSerializer, PermissionUpdateSerializer
+    PermissionSerializer, RolePermissionUpdateSerializer, RolePermissionSerializer
 )
 from roles.services.services import get_role_permissions, update_role_permissions
 
@@ -60,15 +60,20 @@ class RolePermissionsViewSet(
 
     def get_queryset(self):
         role_id: int = self.kwargs['role_pk']
-        return  get_role_permissions(role_id)
+        return get_role_permissions(role_id)
 
-    @action(methods=['patch'], detail=False)
+    @action(methods=['patch'], detail=False, renderer_classes=[RolePermissionsRenderer])
     def batch(self, request, *args, **kwargs):
         role_id = self.kwargs['role_pk']
-        serializer = PermissionUpdateSerializer(data=request.data)
+        serializer = RolePermissionUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         updated_permissions = update_role_permissions(role_id, serializer.validated_data)
+        role_permissions = RolePermission.objects.filter(
+            role_id=role_id,
+            permission_id__in=[p.permission_id for p in updated_permissions]
+        ).select_related('permission')
+        serializer = RolePermissionSerializer(role_permissions, many=True)
         return Response(
-            updated_permissions,
+            serializer.data,
             status=status.HTTP_200_OK
         )
