@@ -107,4 +107,4 @@ def init_everyone_role(sender, instance, created, **kwargs):
 
     from roles.services.services import create_everyone_role
 
-    create_everyone_role(instance).save()
+    create_everyone_role(instance.id).save()

@@ -1,7 +1,7 @@
 from enum import auto, Enum
 
 
-class Permission(Enum):
+class PermissionsEnum(Enum):
     @staticmethod
     def _generate_next_value_(name, start, count, last_values) -> str:
         return name.lower()

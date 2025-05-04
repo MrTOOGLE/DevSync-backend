@@ -2,18 +2,17 @@ from typing import Mapping, Sequence, cast
 
 from django.db import transaction, models
 from django.db.models import QuerySet
-from typing_extensions import overload
 
-from projects.models import Project
 from roles.models import Role, Permission, RolePermission
+from roles.services.enum import PermissionsEnum
 
 
-def create_everyone_role(project: Project) -> Role:
+def create_everyone_role(project_id: int) -> Role:
     """
     Creates a default @everyone role for the specified project.
 
     Args:
-        project: The project instance that will own the new role
+        project_id: The project ID that will own the new role
 
     Returns:
         Role: Newly created Role instance with:
@@ -23,22 +22,12 @@ def create_everyone_role(project: Project) -> Role:
     """
     everyone_role = Role(
         name="@everyone",
-        project=project,
+        project_id=project_id,
         rank=0,
         is_everyone=True,
     )
 
     return everyone_role
-
-
-@overload
-def get_role_permissions(role: Role) -> QuerySet[RolePermission]:
-    pass
-
-
-@overload
-def get_role_permissions(role: int) -> QuerySet[RolePermission]:
-    pass
 
 
 def get_role_permissions(role: Role | int) -> list[RolePermission]:
@@ -72,16 +61,6 @@ def get_role_permissions(role: Role | int) -> list[RolePermission]:
                 )
             )
     return result_permissions
-
-
-@overload
-def update_role_permissions(role: Role, update_permissions: Mapping[str, bool | None]) -> QuerySet[RolePermission]:
-    pass
-
-
-@overload
-def update_role_permissions(role: int, update_permissions: Mapping[str, bool | None]) -> QuerySet[RolePermission]:
-    pass
 
 
 @transaction.atomic
@@ -274,3 +253,35 @@ def _fill_missing_with_defaults(
     for codename, value in permissions_map.items():
         if value is None:
             permissions_map[codename] = default_values.get(codename)
+
+def has_permission(project_id: int, user_id: int, permission: PermissionsEnum | str) -> bool:
+    """
+    Check if a user has a specific permission in a project.
+
+    This function verifies whether the given user possesses the specified permission
+    within the context of the specified project. It handles both enum-based permissions
+    and raw string permission codes.
+
+    Args:
+        project_id: The ID of the project where permission should be checked
+        user_id: The ID of the user whose permissions are being verified
+        permission: Either a PermissionsEnum member or a string representing
+                  the permission codename to check
+
+    Returns:
+        bool: True if the user has the permission enabled, False otherwise.
+              Returns False if the permission is not found in the user's permissions.
+
+    Examples:
+        >>> has_permission(123, 456, PermissionsEnum.VOTING_CREATE)
+        True
+        >>> has_permission(123, 456, "voting_create")
+        True
+        >>> has_permission(123, 456, "nonexistent_permission")
+        False
+    """
+
+    perm_codename = permission.value if isinstance(permission, RolePermission) else permission
+    all_permissions = get_member_permissions(project_id, user_id)
+
+    return all_permissions.get(perm_codename, False)
