@@ -7,6 +7,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.request import Request
 from typing_extensions import ParamSpec
 
+from projects.models import Project
 from roles.models import Role, Permission, RolePermission
 from roles.services.enum import PermissionsEnum
 
@@ -221,7 +222,7 @@ def _get_user_roles_with_permissions(project_id: int, user_id: int) -> QuerySet[
                 to_attr='prefetched_permissions'
             )
         )
-        .order_by('-rank')  # Higher ranks have priority
+        .order_by('-rank')
     )
 
 
@@ -263,6 +264,7 @@ def has_permission(project_id: int, user_id: int, permission: PermissionsEnum | 
     """
     Check if a user has a specific permission in a project.
     Automatically grants permission if user has PROJECT_MANAGE rights.
+    Checker returns True automatically for project owner.
 
     Args:
         project_id: ID of the project to check permissions in
@@ -273,6 +275,7 @@ def has_permission(project_id: int, user_id: int, permission: PermissionsEnum | 
         bool: True if user has either:
               - The requested permission enabled
               - PROJECT_MANAGE privilege
+              - The user is the project's owner
               False otherwise
 
     Examples:
@@ -294,7 +297,8 @@ def has_permission(project_id: int, user_id: int, permission: PermissionsEnum | 
 
     return (
             all_permissions.get(perm_codename, False) or
-            all_permissions.get(PermissionsEnum.PROJECT_MANAGE.value, False)
+            all_permissions.get(PermissionsEnum.PROJECT_MANAGE.value, False) or
+            Project.objects.filter(id=project_id, owner_id=user_id).exists()
     )
 
 
@@ -309,6 +313,7 @@ def check_permission(
     """
     Decorator to verify user permissions before executing a view method.
     Automatically checks permissions against the requesting user.
+    Checker returns True automatically for project owner.
 
     Args:
         *permissions: One or more permissions to check (OR logic)
