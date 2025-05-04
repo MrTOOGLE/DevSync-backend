@@ -33,7 +33,6 @@ members_router.register(r'roles', ProjectMemberRoleViewSet, basename='project-me
 roles_router = routers.NestedSimpleRouter(projects_router, r'roles', lookup='role')
 roles_router.register(r'permissions', RolePermissionsViewSet, basename='role-permissions')
 urlpatterns = [
-
     path('', include(router.urls)),
     path('', include(projects_router.urls)),
     path('', include(members_router.urls)),

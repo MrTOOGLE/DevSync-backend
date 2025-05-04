@@ -19,7 +19,7 @@ class PermissionAdmin(admin.ModelAdmin):
 
 @admin.register(RolePermission)
 class RolePermissionAdmin(admin.ModelAdmin):
-    list_display = ('role', 'permission')
+    list_display = ('role', 'permission', 'value')
 
 
 @admin.register(MemberRole)

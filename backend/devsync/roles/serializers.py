@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from roles.models import Role, MemberRole, RolePermission, Permission
+from roles.models import Role, MemberRole, Permission
 from roles.validators import validate_hex_color
 from users.serializers import UserSerializer
 
@@ -72,14 +72,29 @@ class MemberRoleSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class RolePermissionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RolePermission
-        fields = ['permission', 'value']
-
-
 class PermissionSerializer(serializers.ModelSerializer):
     value = serializers.BooleanField()
     class Meta:
         model = Permission
         fields = ['codename', 'name', 'category', 'description', 'value']
+
+
+class PermissionUpdateSerializer(serializers.Serializer):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._codenames: set[str] = set(Permission.objects.values_list('codename', flat=True))
+
+    def get_fields(self):
+        return {
+            codename: serializers.BooleanField(required=False, allow_null=True)
+            for codename in self.initial_data.keys() if codename in self._codenames
+        }
+
+    def validate(self, attrs):
+        invalid_permissions = set(self.initial_data.keys()) - self._codenames
+        if invalid_permissions:
+            raise serializers.ValidationError(
+                {"detail": f"Неизвестные коды прав: [{', '.join(invalid_permissions)}]"},
+                code='invalid_permissions',
+            )
+        return attrs

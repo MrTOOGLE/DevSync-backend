@@ -1,4 +1,7 @@
+from rest_framework import status
+from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin
+from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from projects.views.base import (
@@ -7,14 +10,14 @@ from projects.views.base import (
     ProjectBasedMixin
 )
 from roles.models import Role, MemberRole
-from roles.renderers import RoleListRenderer
+from roles.renderers import RoleListRenderer, RolePermissionsRenderer
 from roles.serializers import (
     RoleSerializer,
     MemberRoleSerializer,
     RoleWithMembersSerializer,
-    PermissionSerializer
+    PermissionSerializer, PermissionUpdateSerializer
 )
-from roles.services.utils import get_role_permissions
+from roles.services.services import get_role_permissions, update_role_permissions
 
 
 class RoleViewSet(ProjectBasedModelViewSet):
@@ -45,12 +48,27 @@ class ProjectMemberRoleViewSet(BaseProjectMembershipViewSet):
     not_found_message = "Пользователь не имеет данную роль."
 
 
-class RolePermissionsViewSet(ProjectBasedMixin, ListModelMixin, GenericViewSet):
+class RolePermissionsViewSet(
+    ProjectBasedMixin,
+    ListModelMixin,
+    GenericViewSet
+):
     lookup_field = 'role_id'
     lookup_url_kwarg = 'role_pk'
     serializer_class = PermissionSerializer
+    renderer_classes = (RolePermissionsRenderer,)
 
     def get_queryset(self):
         role_id: int = self.kwargs['role_pk']
         return  get_role_permissions(role_id)
 
+    @action(methods=['patch'], detail=False)
+    def batch(self, request, *args, **kwargs):
+        role_id = self.kwargs['role_pk']
+        serializer = PermissionUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updated_permissions = update_role_permissions(role_id, serializer.validated_data)
+        return Response(
+            updated_permissions,
+            status=status.HTTP_200_OK
+        )
