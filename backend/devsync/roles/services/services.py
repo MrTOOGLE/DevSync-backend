@@ -1,14 +1,14 @@
 import functools
-from typing import Mapping, Sequence, cast, TypeVar, Callable
+from typing import Mapping, Sequence, cast, TypeVar, Callable, Protocol
 
 from django.db import transaction, models
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Max
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.request import Request
-from typing_extensions import ParamSpec
+from rest_framework.views import APIView
+from typing_extensions import ParamSpec, runtime_checkable
 
 from projects.models import Project
-from roles.models import Role, Permission, RolePermission
+from roles.models import Role, Permission, RolePermission, MemberRole
 from roles.services.enum import PermissionsEnum
 
 
@@ -306,9 +306,16 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+@runtime_checkable
+class ParamGetter(Protocol[P, R]):
+    def __call__(self: APIView, *args: P.args, **kwargs: P.kwargs) -> R:
+        pass
+
+
 def check_permission(
         *permissions: PermissionsEnum | str,
-        project_id_param: str = 'project_pk'
+        project_id_param: str = 'project_pk',
+        check_rank: ParamGetter[P, int] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator to verify user permissions before executing a view method.
@@ -318,6 +325,7 @@ def check_permission(
     Args:
         *permissions: One or more permissions to check (OR logic)
         project_id_param: Keyword argument name for project ID in URL
+        check_rank
 
     Returns:
         Decorated view method with permission checking
@@ -340,15 +348,12 @@ def check_permission(
 
     def decorator(view_method: Callable[P, R]) -> Callable[P, R]:
         @functools.wraps(view_method)
-        def wrapper(*args, **kwargs) -> R:
-            request = next(
-                (arg for arg in args if isinstance(arg, Request)),
-                kwargs.get('request')
-            )
+        def wrapper(view: APIView, *args: P.args, **kwargs: P.kwargs) -> R:
+            request = getattr(view, 'request', None)
             if request is None:
                 raise ValueError("Request object not found in arguments")
             try:
-                project_id = int(kwargs[project_id_param])
+                project_id = int(view.kwargs[project_id_param])
                 user_id = request.user.id
             except (KeyError, ValueError) as e:
                 raise ValueError(
@@ -358,12 +363,61 @@ def check_permission(
                 has_permission(project_id, user_id, perm)
                 for perm in permissions
             )
+            if check_rank is not None:
+                with_user_id = check_rank(view, *args, **kwargs)
+                if not has_more_permissions(project_id, user_id, with_user_id):
+                    raise PermissionDenied(
+                        detail="..."
+                    )
             if not has_any:
                 raise PermissionDenied(
-                    detail=f"Missing required permission: need any of {permissions}"
+                    detail=f"Missing required permission: need any of: "
+                           f"{', '.join(getattr(p, 'value', p) for p in permissions)}"
                 )
-            return view_method(*args, **kwargs)
+            return view_method(view, *args, **kwargs)
 
         return wrapper
 
     return decorator
+
+
+def has_more_permissions(project_id: int, user_id: int, then_user_id: int) -> bool:
+    """
+    Compare permissions between two users in a project.
+
+    Checks if the first user has higher permissions than the second user by:
+    1. Verifying project ownership
+    2. Comparing the highest role ranks
+
+    Args:
+        project_id: ID of the project to check
+        user_id: ID of the first user (whose permissions we're checking)
+        then_user_id: ID of the second user (to compare against)
+
+    Returns:
+        bool: True if user_id has strictly higher permissions than then_user_id
+
+    Note:
+        - Project owners automatically have the highest permissions
+    """
+    try:
+        project = Project.objects.only('owner_id').get(pk=project_id)
+    except Project.DoesNotExist:
+        return False
+
+    if project.owner_id == user_id:
+        return True
+    if project.owner_id == then_user_id:
+        return False
+
+    result = MemberRole.objects.filter(
+        role__project=project_id,
+        user_id__in=[user_id, then_user_id]
+    ).values('user_id').annotate(
+        max_rank=Max('role__rank')
+    ).order_by('-max_rank')
+    rank_map  = {user['user_id']: user['max_rank'] for user in list(result)}
+    rank_map.setdefault(user_id, 0)
+    rank_map.setdefault(then_user_id, 0)
+
+    return rank_map[user_id] > rank_map[then_user_id]
