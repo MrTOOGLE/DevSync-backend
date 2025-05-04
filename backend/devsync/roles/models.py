@@ -14,7 +14,6 @@ class Role(models.Model):
     project = models.ForeignKey("projects.Project", related_name='roles', on_delete=models.CASCADE)
     color = models.CharField(max_length=7, default="#000000")
     rank = models.IntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(100)])
-    permissions = models.ManyToManyField("Permission", through='RolePermission', related_name="+", blank=True)
     is_everyone = models.BooleanField(default=False)
     date_created = models.DateTimeField(auto_now_add=True)
 
@@ -43,8 +42,8 @@ class MemberRole(models.Model):
 
 
 class RolePermission(models.Model):
-    role = models.ForeignKey(Role, related_name='+', on_delete=models.CASCADE)
-    permission = models.ForeignKey('Permission', to_field='codename', related_name='+', on_delete=models.CASCADE)
+    role = models.ForeignKey(Role, related_name='permissions', on_delete=models.CASCADE)
+    permission = models.ForeignKey('Permission', to_field='codename', on_delete=models.CASCADE)
     value = models.BooleanField(default=None, null=True)
 
     class Meta:
@@ -60,15 +59,19 @@ class RolePermission(models.Model):
 
 
 class StaticPermissionManager(models.Manager):
-    _cache_loaded = False
-    _permissions = []
+    _cache = None
 
     def get_queryset(self):
-        if not self._cache_loaded:
-            self._permissions = list(super().get_queryset().all())
-            self._cache_loaded = True
+        if self._cache is None:
+            self._cache = list(super().get_queryset().all())
+        return self._get_queryset_from_cache()
 
-        return self._permissions
+    def _get_queryset_from_cache(self):
+        from django.db.models.query import QuerySet
+
+        qs = QuerySet(model=self.model)
+        qs._result_cache = self._cache
+        return qs
 
 
 class Permission(models.Model):
@@ -78,8 +81,7 @@ class Permission(models.Model):
     description = models.TextField(max_length=1256)
     default_value = models.BooleanField(default=False)
 
-    objects = models.Manager()
-    cached_objects = StaticPermissionManager()
+    objects = StaticPermissionManager()
 
     class Meta:
         ordering = ('codename',)

@@ -2,7 +2,6 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_nested import routers
 
-from roles.views import RoleViewSet, ProjectMemberRoleViewSet
 from .views import (
     ProjectViewSet,
     ProjectMemberViewSet,
@@ -10,6 +9,11 @@ from .views import (
     ProjectInvitationViewSet,
     ProjectMemberDepartmentViewSet,
     InvitationViewSet
+)
+from roles.views import (
+    RoleViewSet,
+    ProjectMemberRoleViewSet,
+    RolePermissionsViewSet
 )
 
 router = DefaultRouter()
@@ -26,9 +30,12 @@ members_router = routers.NestedSimpleRouter(projects_router, r'members', lookup=
 members_router.register(r'departments', ProjectMemberDepartmentViewSet, basename='project-member-departments')
 members_router.register(r'roles', ProjectMemberRoleViewSet, basename='project-member-roles')
 
+roles_router = routers.NestedSimpleRouter(projects_router, r'roles', lookup='role')
+roles_router.register(r'permissions', RolePermissionsViewSet, basename='role-permissions')
 urlpatterns = [
 
     path('', include(router.urls)),
     path('', include(projects_router.urls)),
     path('', include(members_router.urls)),
+    path('', include(roles_router.urls)),
 ]

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from roles.models import Role, MemberRole
+from roles.models import Role, MemberRole, RolePermission, Permission
 from roles.validators import validate_hex_color
 from users.serializers import UserSerializer
 
@@ -14,11 +14,11 @@ class RoleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Role
-        fields = ['id', 'name', 'color', 'rank']
+        fields = ['id', 'name', 'color', 'rank', 'is_everyone', 'date_created']
         extra_kwargs = {
             'name': {'trim_whitespace': True}
         }
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'is_everyone', 'date_created']
 
 
 class RoleWithMembersSerializer(RoleSerializer):
@@ -32,7 +32,7 @@ class RoleWithMembersSerializer(RoleSerializer):
         return UserSerializer(users, many=True).data
 
 
-class RoleMemberSerializer(serializers.ModelSerializer):
+class MemberRoleSerializer(serializers.ModelSerializer):
     role_id = serializers.PrimaryKeyRelatedField(
         queryset=Role.objects.all(),
         write_only=True,
@@ -44,12 +44,17 @@ class RoleMemberSerializer(serializers.ModelSerializer):
         model = MemberRole
         fields = ['role', 'role_id', 'date_added']
 
-    def validate_role_id(self, value):
+    def validate_role_id(self, value: Role):
         project_id = int(self.context['view'].kwargs['project_pk'])
         if value.project_id != project_id:
             raise serializers.ValidationError(
                 {'role_id': 'Данной роли не существует в этом проекте.'},
-                code='invalid_department'
+                code='invalid_role'
+            )
+        if value.is_everyone:
+            raise serializers.ValidationError(
+                {'role_id': r'Вы не можете назначать\удалять данную роль участникам.'},
+                code='invalid_role'
             )
         return value
 
@@ -65,3 +70,16 @@ class RoleMemberSerializer(serializers.ModelSerializer):
                 code='invalid_role'
             )
         return attrs
+
+
+class RolePermissionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RolePermission
+        fields = ['permission', 'value']
+
+
+class PermissionSerializer(serializers.ModelSerializer):
+    value = serializers.BooleanField()
+    class Meta:
+        model = Permission
+        fields = ['codename', 'name', 'category', 'description', 'value']
