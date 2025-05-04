@@ -281,7 +281,7 @@ def has_permission(project_id: int, user_id: int, permission: PermissionsEnum | 
         False
     """
 
-    perm_codename = permission.value if isinstance(permission, RolePermission) else permission
+    perm_codename = permission.value if isinstance(permission, PermissionsEnum) else permission
     all_permissions = get_member_permissions(project_id, user_id)
 
     return all_permissions.get(perm_codename, False)
