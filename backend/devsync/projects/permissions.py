@@ -9,9 +9,6 @@ class ProjectAccessPermission(BasePermission):
         if not project_pk:
             return False
 
-        if request.method not in SAFE_METHODS:
-            return Project.objects.filter(id=project_pk, owner=request.user).exists()
-
         try:
             project = (
                 Project.objects
@@ -22,7 +19,7 @@ class ProjectAccessPermission(BasePermission):
         except Project.DoesNotExist:
             return False
 
-        if project.is_public:
+        if project.is_public and request.method in SAFE_METHODS:
             return True
 
         return project.members.filter(user=request.user).exists()
