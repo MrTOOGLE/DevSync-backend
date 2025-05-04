@@ -61,17 +61,17 @@ def get_role_permissions(role: Role | int) -> QuerySet[Permission]:
 
 
 @overload
-def update_role_permissions(role: Role, update_permissions: Mapping[str, bool | None]) -> list[RolePermission]:
+def update_role_permissions(role: Role, update_permissions: Mapping[str, bool | None]) -> QuerySet[RolePermission]:
     pass
 
 
 @overload
-def update_role_permissions(role: int, update_permissions: Mapping[str, bool | None]) -> list[RolePermission]:
+def update_role_permissions(role: int, update_permissions: Mapping[str, bool | None]) -> QuerySet[RolePermission]:
     pass
 
 
 @transaction.atomic
-def update_role_permissions(role: Role | int, permissions: Mapping[str, bool | None]) -> list[RolePermission]:
+def update_role_permissions(role: Role | int, permissions: Mapping[str, bool | None]) -> QuerySet[RolePermission]:
     """
     Updates multiple role permissions in single atomic transaction.
 
@@ -80,14 +80,19 @@ def update_role_permissions(role: Role | int, permissions: Mapping[str, bool | N
         permissions: Mapping of permission codenames to desired values
 
     Returns:
-        List of actually updated role permissions
+        QuerySet of actually updated role permissions
     """
     role_id = role.id if isinstance(role, Role) else role
 
     permissions_to_update = get_permissions_to_update(role_id, permissions)
     bulk_update_permission_roles(permissions_to_update)
 
-    return permissions_to_update
+    role_permissions = RolePermission.objects.filter(
+        role_id=role_id,
+        permission_id__in=[p.permission_id for p in permissions_to_update]
+    ).select_related('permission')
+
+    return role_permissions
 
 
 def get_permissions_to_update(role: Role | int, permissions: Mapping[str, bool | None]) -> list[RolePermission]:
@@ -151,19 +156,16 @@ def get_role_defined_permissions(role: Role | int) -> dict[str, bool | None]:
     }
 
 
-def bulk_update_permission_roles(permissions: Sequence[RolePermission]) -> list[RolePermission]:
+def bulk_update_permission_roles(permissions: Sequence[RolePermission]) -> None:
     """
     Executes bulk update/create of role permissions.
 
     Args:
         permissions: RolePermission instances to update/create
-
-    Returns:
-        List of updated/created RolePermission instances
     """
     if not permissions:
-        return []
-    return RolePermission.objects.bulk_create(
+        return
+    RolePermission.objects.bulk_create(
         permissions,
         update_conflicts=True,
         unique_fields=('role_id', 'permission_id'),

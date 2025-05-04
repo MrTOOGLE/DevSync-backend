@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.mixins import ListModelMixin
@@ -53,7 +54,6 @@ class RolePermissionsViewSet(
     ListModelMixin,
     GenericViewSet
 ):
-    lookup_field = 'role_id'
     lookup_url_kwarg = 'role_pk'
     serializer_class = PermissionSerializer
     renderer_classes = (RolePermissionsRenderer,)
@@ -62,18 +62,14 @@ class RolePermissionsViewSet(
         role_id: int = self.kwargs['role_pk']
         return get_role_permissions(role_id)
 
-    @action(methods=['patch'], detail=False, renderer_classes=[RolePermissionsRenderer])
+    @action(methods=['patch'], detail=False)
     def batch(self, request, *args, **kwargs):
         role_id = self.kwargs['role_pk']
+        role = get_object_or_404(Role, pk=role_id)
         serializer = RolePermissionUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        updated_permissions = update_role_permissions(role_id, serializer.validated_data)
-        role_permissions = RolePermission.objects.filter(
-            role_id=role_id,
-            permission_id__in=[p.permission_id for p in updated_permissions]
-        ).select_related('permission')
-        serializer = RolePermissionSerializer(role_permissions, many=True)
+        updated_permissions = update_role_permissions(role, serializer.validated_data)
         return Response(
-            serializer.data,
+            {'permissions': RolePermissionSerializer(updated_permissions, many=True).data},
             status=status.HTTP_200_OK
         )
