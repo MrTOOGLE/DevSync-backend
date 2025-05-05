@@ -1,11 +1,8 @@
-import functools
-from typing import Mapping, Sequence, cast, TypeVar, Callable, Protocol
+from typing import Mapping, Sequence, cast
 
 from django.db import transaction, models
 from django.db.models import QuerySet, Max
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.views import APIView
-from typing_extensions import ParamSpec, runtime_checkable
 
 from projects.models import Project
 from roles.models import Role, Permission, RolePermission, MemberRole
@@ -302,83 +299,61 @@ def has_permission(project_id: int, user_id: int, permission: PermissionsEnum | 
     )
 
 
-P = ParamSpec("P")
-R = TypeVar("R")
-
-
-@runtime_checkable
-class ParamGetter(Protocol[P, R]):
-    def __call__(self: APIView, *args: P.args, **kwargs: P.kwargs) -> R:
-        pass
-
-
 def check_permissions(
+        project_id: int,
+        user_id: int,
         *permissions: PermissionsEnum | str,
-        project_id_param: str = 'project_pk',
-        check_rank: ParamGetter[P, int] | None = None,
-) -> Callable[[Callable[P, R]], Callable[P, R]]:
+        check_rank_with_user_id: int | None = None,
+        only_owner: bool = False,
+) -> None:
     """
-    Decorator to verify user permissions before executing a view method.
-    Automatically checks permissions against the requesting user.
-    Checker returns True automatically for project owner.
+    Internal helper function to verify user permissions against various conditions.
+
+    This function performs a series of permission checks in the following order:
+    1. Validates if the user is the project owner (when only_owner=True)
+    2. Compares user ranks (when check_rank_with_user_id is provided)
+    3. Verifies specific permissions (when permissions are provided)
+
+    The function raises PermissionDenied immediately when any check fails.
 
     Args:
-        *permissions: One or more permissions to check (OR logic)
-        project_id_param: Keyword argument name for project ID in URL
-        check_rank
-
-    Returns:
-        Decorated view method with permission checking
+        project_id: The ID of the project to check permissions against
+        user_id: The ID of the user whose permissions are being verified
+        permissions: Tuple of permission strings or PermissionsEnum values.
+                    The user must have at least one of these permissions.
+                    If empty tuple (default), this check is skipped.
+        check_rank_with_user_id: Optional user ID to compare ranks with.
+                                If provided, the user must have higher or equal rank
+                                than this user.
+        only_owner: If True, restricts access to project owners only.
+                   This check takes precedence over other permission checks.
 
     Raises:
-        ValueError: If request object or project ID is missing/invalid
-        PermissionDenied: If user lacks all required permissions
-
-    Examples:
-        # Basic usage
-        @check_permission(PermissionsEnum.VOTING_VOTE)
-        def vote(self, request, project_pk):
-            ...
-
-        # Multiple permissions (OR)
-        @check_permission('edit_content', 'admin_access')
-        def edit(self, request, project_pk):
-            ...
+        PermissionDenied: When any of the permission checks fail.
+                          Provides detailed message about which check failed.
     """
+    if only_owner and not is_owner(project_id, user_id):
+        raise PermissionDenied(
+            detail="You have not enough permissions."
+        )
 
-    def decorator(view_method: Callable[P, R]) -> Callable[P, R]:
-        @functools.wraps(view_method)
-        def wrapper(view: APIView, *args: P.args, **kwargs: P.kwargs) -> R:
-            request = getattr(view, 'request', None)
-            if request is None:
-                raise ValueError("Request object not found in arguments")
-            try:
-                project_id = int(view.kwargs[project_id_param])
-                user_id = request.user.id
-            except (KeyError, ValueError) as e:
-                raise ValueError(
-                    f"Missing or invalid ID parameter: {project_id_param}"
-                ) from e
-            has_any = any(
-                has_permission(project_id, user_id, perm)
-                for perm in permissions
+    if check_rank_with_user_id is not None:
+        if not has_more_permissions(project_id, user_id, check_rank_with_user_id):
+            raise PermissionDenied(
+                detail="You have not enough permissions."
             )
-            if check_rank is not None:
-                with_user_id = check_rank(view, *args, **kwargs)
-                if not has_more_permissions(project_id, user_id, with_user_id):
-                    raise PermissionDenied(
-                        detail="..."
-                    )
-            if not has_any:
-                raise PermissionDenied(
-                    detail=f"Missing required permission: need any of: "
-                           f"{', '.join(getattr(p, 'value', p) for p in permissions)}"
-                )
-            return view_method(view, *args, **kwargs)
 
-        return wrapper
-
-    return decorator
+    if permissions:
+        has_any = any(
+            has_permission(project_id, user_id, perm)
+            for perm in permissions
+        )
+        if not has_any:
+            raise PermissionDenied(
+                detail=f"Required permission: any of {', '.join(
+                    getattr(p, 'value', p) for p in permissions
+                )}"
+            )
 
 
 def has_more_permissions(project_id: int, user_id: int, then_user_id: int) -> bool:
@@ -405,9 +380,9 @@ def has_more_permissions(project_id: int, user_id: int, then_user_id: int) -> bo
     except Project.DoesNotExist:
         return False
 
-    if project.owner_id == user_id:
+    if is_owner(project, user_id):
         return True
-    if project.owner_id == then_user_id:
+    if is_owner(project, then_user_id):
         return False
 
     result = MemberRole.objects.filter(
@@ -421,3 +396,10 @@ def has_more_permissions(project_id: int, user_id: int, then_user_id: int) -> bo
     rank_map.setdefault(then_user_id, 0)
 
     return rank_map[user_id] > rank_map[then_user_id]
+
+
+def is_owner(project: Project | int, user_id: int) -> bool:
+    if isinstance(project, int):
+        project = Project.objects.only('owner_id').get(pk=project)
+
+    return project.owner_id == user_id
