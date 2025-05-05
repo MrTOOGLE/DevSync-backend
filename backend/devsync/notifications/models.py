@@ -26,6 +26,9 @@ class NotificationContextObject(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['notification', 'name'], name='unique_notification'),
         ]
+        indexes = [
+            models.Index(fields=['notification']),
+        ]
 
 
 class Notification(models.Model):
