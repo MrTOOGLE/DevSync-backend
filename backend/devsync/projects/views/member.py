@@ -1,6 +1,7 @@
 from django.shortcuts import get_object_or_404
+from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
 
 from projects.models import ProjectMember, MemberDepartment
 from projects.renderers import ProjectMemberListRenderer, DepartmentListRenderer
@@ -8,7 +9,7 @@ from projects.serializers import ProjectMemberSerializer
 from projects.serializers.department import DepartmentMemberSerializer
 from projects.views.base import ProjectBasedModelViewSet, BaseProjectMembershipViewSet
 from roles.services.enum import PermissionsEnum
-from roles.services.services import check_permissions
+from roles.services.decorators import require_permissions
 
 
 class ProjectMemberViewSet(ProjectBasedModelViewSet):
@@ -28,19 +29,11 @@ class ProjectMemberViewSet(ProjectBasedModelViewSet):
             user_id=self.kwargs['pk']
         )
 
-    @check_permissions(
+    @require_permissions(
         PermissionsEnum.MEMBER_MANAGE,
         check_rank=lambda view, *args, **kwargs: args[0].user_id
     )
     def perform_destroy(self, instance):
-        project = self.get_project()
-
-        if project.owner_id == instance.user_id:
-            raise PermissionDenied(
-                {"detail": "Невозможно удалить владельца проекта из участников."},
-                code='protected_owner'
-            )
-
         super().perform_destroy(instance)
 
     @action(methods=['get', 'delete'], detail=False)
@@ -49,7 +42,9 @@ class ProjectMemberViewSet(ProjectBasedModelViewSet):
         if request.method == 'GET':
             return super().retrieve(request)
         elif request.method == 'DELETE':
-            return super().destroy(request)
+            instance = self.get_object()
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProjectMemberDepartmentViewSet(BaseProjectMembershipViewSet):

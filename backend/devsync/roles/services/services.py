@@ -311,8 +311,8 @@ def check_permissions(
 
     This function performs a series of permission checks in the following order:
     1. Validates if the user is the project owner (when only_owner=True)
-    2. Compares user ranks (when check_rank_with_user_id is provided)
-    3. Verifies specific permissions (when permissions are provided)
+    2. Verifies specific permissions (when permissions are provided)
+    3. Compares user ranks (when check_rank_with_user_id is provided)
 
     The function raises PermissionDenied immediately when any check fails.
 
@@ -336,13 +336,6 @@ def check_permissions(
         raise PermissionDenied(
             detail="You have not enough permissions."
         )
-
-    if check_rank_with_user_id is not None:
-        if not has_more_permissions(project_id, user_id, check_rank_with_user_id):
-            raise PermissionDenied(
-                detail="You have not enough permissions."
-            )
-
     if permissions:
         has_any = any(
             has_permission(project_id, user_id, perm)
@@ -353,6 +346,12 @@ def check_permissions(
                 detail=f"Required permission: any of {', '.join(
                     getattr(p, 'value', p) for p in permissions
                 )}"
+            )
+
+    if check_rank_with_user_id is not None:
+        if not has_more_permissions(project_id, user_id, check_rank_with_user_id):
+            raise PermissionDenied(
+                detail="You have not enough permissions."
             )
 
 

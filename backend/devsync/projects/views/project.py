@@ -16,6 +16,9 @@ from projects.serializers import (
     ProjectSerializer,
     ProjectOwnerSerializer
 )
+from roles.services.enum import PermissionsEnum
+from roles.services.services import check_permissions
+from roles.services.decorators import require_permissions
 from users.serializers import UserSerializer
 
 User = get_user_model()
@@ -47,6 +50,14 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    @require_permissions(PermissionsEnum.PROJECT_MANAGE, project_id_param='pk')
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @require_permissions(only_owner=True, project_id_param='pk')
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
     @action(
         methods=['get'],
         detail=False,
@@ -64,23 +75,24 @@ class ProjectViewSet(viewsets.ModelViewSet):
         cache.set(cache_key, response.data, timeout=15)
         return response
 
-    @action(methods=['get', 'put'], detail=True)
+    @action(methods=['get', 'put'], detail=True, url_path='owner')
     def owner(self, request, *args, **kwargs):
         project = self.get_object()
-        if request.method == "GET":
-            owner = UserSerializer(project.owner)
-            return Response(owner.data, status=status.HTTP_200_OK)
-        elif request.method == "PUT":
+
+        if request.method == 'GET':
+            serializer = UserSerializer(project.owner)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        elif request.method == 'PUT':
+            check_permissions(
+                project_id=project.pk,
+                user_id=self.request.user.id,
+                only_owner=True,
+            )
             serializer = ProjectOwnerSerializer(
                 project,
                 data=request.data,
-                context={'request': request}
             )
-
             serializer.is_valid(raise_exception=True)
-            project = serializer.save()
-
-            return Response(
-                UserSerializer(project.owner).data,
-                status=status.HTTP_200_OK
-            )
+            owner = serializer.save()
+            return Response(UserSerializer(owner).data, status=status.HTTP_200_OK)
