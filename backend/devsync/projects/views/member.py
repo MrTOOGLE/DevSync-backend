@@ -31,7 +31,7 @@ class ProjectMemberViewSet(ProjectBasedModelViewSet):
 
     @require_permissions(
         PermissionsEnum.MEMBER_MANAGE,
-        check_rank=lambda view, *args, **kwargs: args[0].user_id
+        compare_rank_with=lambda view, *args, **kwargs: args[0].user_id
     )
     def perform_destroy(self, instance):
         super().perform_destroy(instance)
