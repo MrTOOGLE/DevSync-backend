@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
-from django.db.models.signals import post_save, pre_delete
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from projects.models import Project
@@ -89,15 +89,6 @@ class Permission(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.codename})"
-
-
-@receiver(pre_delete, sender=Role)
-def forbid_delete_everyone_role(sender, instance, **kwargs):
-    if instance.is_everyone:
-        raise models.ProtectedError(
-            "You can't delete @everyone role.",
-            instance
-        )
 
 
 @receiver(signal=post_save, sender=Project)
