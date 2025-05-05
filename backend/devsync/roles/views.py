@@ -119,6 +119,7 @@ class RolePermissionsViewSet(
         return get_role_permissions(role_id)
 
     @action(methods=['patch'], detail=False)
+    @require_permissions(PermissionsEnum.ROLE_MANAGE)
     def batch(self, request, *args, **kwargs):
         role_id = self.kwargs['role_pk']
         role = get_object_or_404(Role, pk=role_id)
