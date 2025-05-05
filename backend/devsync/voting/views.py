@@ -1,11 +1,11 @@
+from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets
-from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
 
+from projects.models import Project
 from projects.permissions import ProjectAccessPermission
 from voting.filters import VotingFilter
 from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
@@ -26,17 +26,12 @@ class VotingViewSet(viewsets.ModelViewSet):
     ordering_fields = ('title', 'date_started', 'date_ended')
 
     def get_queryset(self):
-        user = self.request.user
-        if self.action in ['list', 'retrieve']:
-            return Voting.objects.filter(
-                Q(project__members__user=user) |
-                Q(project__is_public=True)
-            ).select_related('project', 'creator').distinct()
-
-        return Voting.objects.all()
+        project_pk = self.kwargs.get('project_pk')
+        return Voting.objects.filter(project_id=project_pk).select_related('project', 'creator')
 
     def perform_create(self, serializer):
-        serializer.save(creator=self.request.user)
+        project_pk = self.kwargs.get('project_pk')
+        serializer.save(creator=self.request.user, project_id=project_pk)
 
 
 class VotingBasedViewSet(viewsets.ModelViewSet):
@@ -48,20 +43,28 @@ class VotingBasedViewSet(viewsets.ModelViewSet):
 
         return voting
 
+    def get_project(self):
+        project_id = self.kwargs.get('project_pk')
+        project = get_object_or_404(Project, pk=project_id)
+
+        return project
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['voting'] = self.get_voting()
+        context['project'] = self.get_project()
         return context
 
 
 class VotingOptionViewSet(VotingBasedViewSet):
-    queryset = VotingOption.objects.all()
+    queryset = VotingOption.objects.annotate(votes_count=Count('choices'))
     serializer_class = VotingOptionSerializer
     renderer_classes = [VotingOptionListRenderer]
 
     def get_queryset(self):
         voting = self.get_voting()
-        return VotingOption.objects.filter(voting=voting).select_related("voting")
+        project = self.get_project()
+        return VotingOption.objects.filter(voting=voting, project=project).select_related("voting")
 
 
 class VotingOptionChoiceViewSet(VotingBasedViewSet):
@@ -70,7 +73,8 @@ class VotingOptionChoiceViewSet(VotingBasedViewSet):
 
     def get_queryset(self):
         voting = self.get_voting()
-        return VotingOptionChoice.objects.filter(option__voting=voting).select_related("option", "user")
+        project = self.get_project()
+        return VotingOptionChoice.objects.filter(option__voting=voting, project=project).select_related("option", "user")
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -83,7 +87,13 @@ class VotingCommentViewSet(VotingBasedViewSet):
 
     def get_queryset(self):
         voting = self.get_voting()
-        return VotingComment.objects.filter(voting=voting).select_related("sender")
+        project = self.get_project()
+        return VotingComment.objects.filter(voting=voting, project=project).select_related("sender")
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['user'] = self.get_project()
+        return context
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user, voting=self.get_voting())
