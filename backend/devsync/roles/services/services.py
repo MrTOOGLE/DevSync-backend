@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Mapping, Sequence, cast, Iterable
+from typing import Mapping, cast, Iterable
 
 from django.db import transaction, models
 from django.db.models import QuerySet, Max
@@ -151,7 +151,7 @@ def get_role_defined_permissions(role: Role | int) -> QuerySet[RolePermission]:
     return defined_permissions
 
 
-def bulk_update_permission_roles(permissions: Sequence[RolePermission]) -> None:
+def bulk_update_permission_roles(permissions: Iterable[RolePermission]) -> None:
     """
     Executes bulk update/insert of role permissions.
 
