@@ -19,6 +19,10 @@ class Role(models.Model):
 
     class Meta:
         ordering = ('-rank', )
+        indexes = [
+            models.Index(fields=['project']),
+            models.Index(fields=['project', 'is_everyone']),
+        ]
 
     def __str__(self):
         return f'Role {self.name} (id: {self.id})'
@@ -36,6 +40,9 @@ class MemberRole(models.Model):
                 name='unique_member_role'
             )
         ]
+        indexes = [
+            models.Index(fields=['role']),
+        ]
 
     def __str__(self):
         return f'{self.role} ({self.user})'
@@ -52,6 +59,9 @@ class RolePermission(models.Model):
                 fields=['role', 'permission'],
                 name='unique_role_permission'
             )
+        ]
+        indexes = [
+            models.Index(fields=['role']),
         ]
 
     def __str__(self):

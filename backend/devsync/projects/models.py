@@ -28,6 +28,12 @@ class Project(models.Model):
     objects = models.Manager()
     public_objects = PublicProjectManager()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['owner']),
+            models.Index(fields=['is_public']),
+        ]
+
     def __str__(self):
         return f"{self.title} (Owner: {self.owner})"
 
@@ -40,6 +46,10 @@ class ProjectMember(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['project', 'user'], name='unique_project_member')
+        ]
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['project']),
         ]
 
     def __str__(self):
@@ -58,6 +68,10 @@ class ProjectInvitation(models.Model):
                 fields=['project', 'user'],
                 name='unique_project_user_invitation'
             ),
+        ]
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['project']),
         ]
         ordering = ['-date_created']
 
@@ -81,6 +95,11 @@ class Department(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
     description = models.CharField(max_length=256, blank=True, default='')
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['project']),
+        ]
+
     def __str__(self):
         return f'{self.title} ({self.project})'
 
@@ -94,6 +113,11 @@ class MemberDepartment(models.Model):
         constraints = [
             models.UniqueConstraint(fields=['department', 'user'], name='unique_department_member')
         ]
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['department']),
+        ]
+
 
     def __str__(self):
         return f'{self.user} - {self.department}'
