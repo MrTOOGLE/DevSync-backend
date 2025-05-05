@@ -316,6 +316,7 @@ def check_permissions(
     1. Validates if the user is the project owner (when only_owner=True)
     2. Verifies specific permissions (when permissions are provided)
     3. Compares user ranks (when check_rank_with_user_id is provided)
+    4. Runs additional custom checks (when checkers are provided)
 
     The function raises PermissionDenied immediately when any check fails.
 
@@ -330,7 +331,9 @@ def check_permissions(
                                 than this user.
         only_owner: If True, restricts access to project owners only.
                    This check takes precedence over other permission checks.
-        checkers:
+        checkers: Iterable of BaseParamChecker instances for additional custom checks.
+                Each checker must have its source loaded before being passed.
+                Checkers are executed after all other permission checks.
 
     Raises:
         PermissionDenied: When any of the permission checks fail.
