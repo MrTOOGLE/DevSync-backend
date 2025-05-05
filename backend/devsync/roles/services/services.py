@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Mapping, Sequence, cast
 
 from django.db import transaction, models
@@ -390,9 +391,10 @@ def has_more_permissions(project_id: int, user_id: int, then_user_id: int) -> bo
     ).values('user_id').annotate(
         max_rank=Max('role__rank')
     ).order_by('-max_rank')
-    rank_map  = {user['user_id']: user['max_rank'] for user in list(result)}
-    rank_map.setdefault(user_id, 0)
-    rank_map.setdefault(then_user_id, 0)
+
+    rank_map  = defaultdict(int, {
+        user['user_id']: user['max_rank'] for user in list(result)
+    })
 
     return rank_map[user_id] > rank_map[then_user_id]
 

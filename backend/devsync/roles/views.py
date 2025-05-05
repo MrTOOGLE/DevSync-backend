@@ -7,7 +7,6 @@ from rest_framework.viewsets import GenericViewSet
 
 from projects.views.base import (
     ProjectBasedModelViewSet,
-    BaseProjectMembershipViewSet,
     ProjectBasedMixin
 )
 from roles.models import Role, MemberRole
@@ -19,6 +18,8 @@ from roles.serializers import (
     PermissionsSerializer,
     RolePermissionSerializer
 )
+from roles.services.decorators import require_permissions
+from roles.services.enum import PermissionsEnum
 from roles.services.services import get_role_permissions, update_role_permissions, get_member_permissions
 
 
@@ -41,21 +42,28 @@ class RoleViewSet(ProjectBasedModelViewSet):
             return RoleWithMembersSerializer
         return RoleSerializer
 
-    @action(methods=["get"], detail=False)
-    def test(self, request, project_pk=None):
-        get_member_permissions(int(project_pk), self.request.user.id)
-        return Response(
-            {"success": True},
-            status=status.HTTP_200_OK
-        )
 
-
-class ProjectMemberRoleViewSet(BaseProjectMembershipViewSet):
-    relation_model = MemberRole
-    relation_field = 'role'
+class ProjectMemberRoleViewSet(ProjectBasedModelViewSet):
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
     renderer_classes = [RoleListRenderer]
     serializer_class = MemberRoleSerializer
-    not_found_message = "Пользователь не имеет данную роль."
+
+    def get_queryset(self):
+        return MemberRole.objects.filter(
+            role__project_id=self.kwargs['project_pk'],
+            user_id=self.kwargs['member_pk']
+        )
+
+    def get_object(self):
+        return get_object_or_404(
+            MemberRole,
+            role_id=self.kwargs['pk'],
+            user_id=self.kwargs['member_pk']
+        )
+
+    @require_permissions(PermissionsEnum.ROLE_MANAGE)
+    def perform_create(self, serializer):
+        serializer.save(user_id=self.kwargs['member_pk'])
 
 
 class RolePermissionsViewSet(
