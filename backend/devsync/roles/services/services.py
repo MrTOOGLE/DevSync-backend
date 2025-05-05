@@ -405,6 +405,18 @@ def has_more_permissions(project_id: int, user_id: int, then_user_id: int) -> bo
 
 
 def is_owner(project: Project | int, user_id: int) -> bool:
+    """
+    Check if the given user is the owner of the specified project.
+
+    Args:
+        project: Either a Project instance or project ID (int).
+                 If int is provided, the function will fetch minimal project data
+                 (only owner_id) from the database.
+        user_id: ID of the user to check ownership against.
+
+    Returns:
+        bool: True if the user is the project owner, False otherwise.
+    """
     if isinstance(project, int):
         project = Project.objects.only('owner_id').get(pk=project)
 
