@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Mapping, Sequence, cast
+from typing import Mapping, Sequence, cast, Iterable
 
 from django.db import transaction, models
 from django.db.models import QuerySet, Max
@@ -7,6 +7,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from projects.models import Project
 from roles.models import Role, Permission, RolePermission, MemberRole
+from roles.services.checkers import BaseParamChecker
 from roles.services.enum import PermissionsEnum
 
 
@@ -304,8 +305,9 @@ def check_permissions(
         project_id: int,
         user_id: int,
         *permissions: PermissionsEnum | str,
-        check_rank_with_user_id: int | None = None,
+        compare_rank_with_user_id: int | None = None,
         only_owner: bool = False,
+        checkers: Iterable[BaseParamChecker] = tuple()
 ) -> None:
     """
     Internal helper function to verify user permissions against various conditions.
@@ -323,20 +325,19 @@ def check_permissions(
         permissions: Tuple of permission strings or PermissionsEnum values.
                     The user must have at least one of these permissions.
                     If empty tuple (default), this check is skipped.
-        check_rank_with_user_id: Optional user ID to compare ranks with.
+        compare_rank_with_user_id: Optional user ID to compare ranks with.
                                 If provided, the user must have higher or equal rank
                                 than this user.
         only_owner: If True, restricts access to project owners only.
                    This check takes precedence over other permission checks.
+        checkers:
 
     Raises:
         PermissionDenied: When any of the permission checks fail.
                           Provides detailed message about which check failed.
     """
     if only_owner and not is_owner(project_id, user_id):
-        raise PermissionDenied(
-            detail="You have not enough permissions."
-        )
+        raise PermissionDenied(detail="You have not enough permissions.")
     if permissions:
         has_any = any(
             has_permission(project_id, user_id, perm)
@@ -349,12 +350,13 @@ def check_permissions(
                 )}"
             )
 
-    if check_rank_with_user_id is not None:
-        if not has_more_permissions(project_id, user_id, check_rank_with_user_id):
-            raise PermissionDenied(
-                detail="You have not enough permissions."
-            )
+    if compare_rank_with_user_id is not None:
+        if not has_more_permissions(project_id, user_id, compare_rank_with_user_id):
+            raise PermissionDenied(detail="You have not enough permissions.")
 
+    for checker in checkers:
+        if not checker(project_id, user_id):
+            raise PermissionDenied(detail="You have not enough permissions.")
 
 def has_more_permissions(project_id: int, user_id: int, then_user_id: int) -> bool:
     """

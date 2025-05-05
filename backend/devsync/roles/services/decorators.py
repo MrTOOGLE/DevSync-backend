@@ -1,9 +1,11 @@
 import functools
-from typing import TypeVar, Protocol, Callable
+from collections.abc import Iterable
+from typing import TypeVar, Callable
 
 from rest_framework.views import APIView
-from typing_extensions import ParamSpec, runtime_checkable
+from typing_extensions import ParamSpec
 
+from roles.services.checkers import ParamViewFuncGetter, BaseParamChecker
 from roles.services.enum import PermissionsEnum
 from roles.services.services import check_permissions
 
@@ -11,17 +13,12 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-@runtime_checkable
-class ParamViewFuncGetter(Protocol[P, R]):
-    def __call__(self: APIView, *args: P.args, **kwargs: P.kwargs) -> R:
-        pass
-
-
 def require_permissions(
         *permissions: PermissionsEnum | str,
         project_id_param: str = 'project_pk',
         compare_rank_with: ParamViewFuncGetter[P, int] | None = None,
-        only_owner: bool = False
+        only_owner: bool = False,
+        checkers: Iterable[BaseParamChecker] = tuple()
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator factory for view methods to enforce permission checks.
@@ -43,6 +40,7 @@ def require_permissions(
                    than the returned user ID.
         only_owner: If True, restricts access to project owners only.
                    This check takes precedence over other permission checks.
+        checkers:
 
     Returns:
         A decorator function that wraps the view method with permission checks.
@@ -88,16 +86,20 @@ def require_permissions(
                 raise ValueError(
                     f"Missing or invalid ID parameter: {project_id_param}"
                 ) from e
+
             if compare_rank_with is not None:
                 check_rank_with_user_id = compare_rank_with(view, *args, **kwargs)
             else:
                 check_rank_with_user_id = None
+            for checker in checkers:
+                checker.load_source(view, *args, **kwargs)
             check_permissions(
                 project_id,
                 user_id,
                 *permissions,
-                check_rank_with_user_id=check_rank_with_user_id,
+                compare_rank_with_user_id=check_rank_with_user_id,
                 only_owner=only_owner,
+                checkers=checkers,
             )
             return view_method(view, *args, **kwargs)
 

@@ -7,7 +7,7 @@ from projects.models import ProjectMember, MemberDepartment
 from projects.renderers import ProjectMemberListRenderer, DepartmentListRenderer
 from projects.serializers import ProjectMemberSerializer
 from projects.serializers.department import DepartmentMemberSerializer
-from projects.views.base import ProjectBasedModelViewSet, BaseProjectMembershipViewSet
+from projects.views.base import ProjectBasedModelViewSet
 from roles.services.enum import PermissionsEnum
 from roles.services.decorators import require_permissions
 
@@ -47,9 +47,28 @@ class ProjectMemberViewSet(ProjectBasedModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ProjectMemberDepartmentViewSet(BaseProjectMembershipViewSet):
-    relation_model = MemberDepartment
-    relation_field = 'department'
+class ProjectMemberDepartmentViewSet(ProjectBasedModelViewSet):
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
     renderer_classes = [DepartmentListRenderer]
     serializer_class = DepartmentMemberSerializer
-    not_found_message = "Пользователь не состоит в указанном отделе."
+
+    def get_queryset(self):
+        return MemberDepartment.objects.filter(
+            department__project_id=self.kwargs['project_pk'],
+            user_id=self.kwargs["member_pk"]
+        )
+
+    def get_object(self):
+        return get_object_or_404(
+            MemberDepartment,
+            department_id= self.kwargs['pk'],
+            user_id=self.kwargs["member_pk"]
+        )
+
+    @require_permissions(PermissionsEnum.MEMBER_DEPARTMENT_ASSIGN)
+    def perform_create(self, serializer):
+        serializer.save(user_id=self.kwargs["member_pk"])
+
+    @require_permissions(PermissionsEnum.MEMBER_DEPARTMENT_ASSIGN)
+    def perform_destroy(self, instance):
+        super().perform_destroy(instance)

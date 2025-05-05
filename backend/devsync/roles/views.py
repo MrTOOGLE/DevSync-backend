@@ -18,9 +18,19 @@ from roles.serializers import (
     PermissionsSerializer,
     RolePermissionSerializer
 )
+from roles.services.checkers import (
+    RankChecker,
+    get_rank_from_role_related_instance,
+    get_rank_from_role_instance,
+    get_rank_from_validated_data
+)
 from roles.services.decorators import require_permissions
 from roles.services.enum import PermissionsEnum
-from roles.services.services import get_role_permissions, update_role_permissions, get_member_permissions
+from roles.services.services import (
+    get_role_permissions,
+    update_role_permissions,
+    get_member_permissions
+)
 
 
 class RoleViewSet(ProjectBasedModelViewSet):
@@ -29,18 +39,37 @@ class RoleViewSet(ProjectBasedModelViewSet):
     serializer_class = RoleSerializer
 
     def get_queryset(self):
-        return Role.objects.filter(
-            project_id=self.kwargs['project_pk']
-        ).prefetch_related('members__user')
-
-    def perform_create(self, serializer):
-        serializer.save(project=self.get_project())
+        queryset = Role.objects.filter(project_id=self.kwargs['project_pk'])
+        if self.request.query_params.get('members', '').lower() in ['true', '1']:
+            queryset = queryset.prefetch_related('members__user')
+        return queryset
 
     def get_serializer_class(self):
         with_members = self.request.query_params.get('members', None)
         if with_members is not None and with_members.lower() in ['true', '1']:
             return RoleWithMembersSerializer
         return RoleSerializer
+
+    @require_permissions(
+        PermissionsEnum.ROLE_MANAGE,
+        checkers=[RankChecker(get_rank_from_validated_data)],
+    )
+    def perform_create(self, serializer):
+        serializer.save(project=self.get_project())
+
+    @require_permissions(
+        PermissionsEnum.ROLE_MANAGE,
+        checkers=[RankChecker(get_rank_from_validated_data)],
+    )
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+
+    @require_permissions(
+        PermissionsEnum.ROLE_MANAGE,
+        checkers=[RankChecker(get_rank_from_role_instance)],
+    )
+    def perform_destroy(self, instance):
+        super().perform_destroy(instance)
 
 
 class ProjectMemberRoleViewSet(ProjectBasedModelViewSet):
@@ -61,9 +90,19 @@ class ProjectMemberRoleViewSet(ProjectBasedModelViewSet):
             user_id=self.kwargs['member_pk']
         )
 
-    @require_permissions(PermissionsEnum.ROLE_MANAGE)
+    @require_permissions(
+        PermissionsEnum.MEMBER_ROLE_ASSIGN,
+        checkers=[RankChecker(get_rank_from_validated_data)]
+    )
     def perform_create(self, serializer):
         serializer.save(user_id=self.kwargs['member_pk'])
+
+    @require_permissions(
+        PermissionsEnum.MEMBER_ROLE_ASSIGN,
+        checkers=[RankChecker(get_rank_from_role_related_instance)]
+    )
+    def perform_destroy(self, instance):
+        super().perform_destroy(instance)
 
 
 class RolePermissionsViewSet(
