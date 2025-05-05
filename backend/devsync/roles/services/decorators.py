@@ -12,7 +12,7 @@ R = TypeVar("R")
 
 
 @runtime_checkable
-class ParamViewGetter(Protocol[P, R]):
+class ParamViewFuncGetter(Protocol[P, R]):
     def __call__(self: APIView, *args: P.args, **kwargs: P.kwargs) -> R:
         pass
 
@@ -20,7 +20,7 @@ class ParamViewGetter(Protocol[P, R]):
 def require_permissions(
         *permissions: PermissionsEnum | str,
         project_id_param: str = 'project_pk',
-        check_rank: ParamViewGetter[P, int] | None = None,
+        compare_rank_with: ParamViewFuncGetter[P, int] | None = None,
         only_owner: bool = False
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
@@ -38,7 +38,7 @@ def require_permissions(
                      The user must have at least one of these permissions (OR logic).
         project_id_param: The keyword argument name in the URL that contains the project ID.
                          Defaults to 'project_pk'.
-        check_rank: Optional callable that returns a user ID to compare ranks with.
+        compare_rank_with: Optional callable that returns a user ID to compare ranks with.
                    If provided, the requesting user must have higher rank
                    than the returned user ID.
         only_owner: If True, restricts access to project owners only.
@@ -88,8 +88,8 @@ def require_permissions(
                 raise ValueError(
                     f"Missing or invalid ID parameter: {project_id_param}"
                 ) from e
-            if check_rank is not None:
-                check_rank_with_user_id = check_rank(view, *args, **kwargs)
+            if compare_rank_with is not None:
+                check_rank_with_user_id = compare_rank_with(view, *args, **kwargs)
             else:
                 check_rank_with_user_id = None
             check_permissions(
