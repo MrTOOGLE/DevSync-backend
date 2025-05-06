@@ -45,13 +45,7 @@ class ProjectOwnerSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         new_owner = validated_data['new_owner_id']
 
-        if instance.owner != self.context['request'].user:
-            raise serializers.ValidationError(
-                {"detail": "Только владелец проекта может передать права владельца."},
-                code="not_a_owner"
-            )
-
         instance.owner = new_owner
         instance.save()
 
-        return instance
+        return instance.owner

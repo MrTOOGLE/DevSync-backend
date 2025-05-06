@@ -36,6 +36,12 @@ class User(AbstractUser):
 
     class Meta:
         ordering = ["-id"]
+        indexes = [
+            models.Index(fields=['last_name', 'first_name']),
+            models.Index(fields=['city']),
+            models.Index(fields=['first_name']),
+            models.Index(fields=['last_name']),
+        ]
 
     @property
     def username(self):

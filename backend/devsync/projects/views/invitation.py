@@ -14,10 +14,12 @@ from projects.serializers import (
     ProjectInvitationActionSerializer
 )
 from projects.services import ProjectInvitationService, ProjectInvitationNotificationService
-from projects.views.base import ProjectBasedViewSet
+from projects.views.base import ProjectBasedModelViewSet
+from roles.services.decorators import require_permissions
+from roles.services.enum import PermissionsEnum
 
 
-class ProjectInvitationViewSet(ProjectBasedViewSet):
+class ProjectInvitationViewSet(ProjectBasedModelViewSet):
     renderer_classes = [ProjectInvitationListRenderer]
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
@@ -40,10 +42,12 @@ class ProjectInvitationViewSet(ProjectBasedViewSet):
             return ProjectInvitationCreateSerializer
         return ProjectInvitationSerializer
 
+    @require_permissions(PermissionsEnum.MEMBER_MANAGE)
     def perform_create(self, serializer):
         invitation = serializer.save(project=self.get_project(), invited_by=self.request.user)
         self._notification_service.create_notification(invitation.user, invitation)
 
+    @require_permissions(PermissionsEnum.MEMBER_MANAGE)
     def perform_destroy(self, instance):
         instance.delete()
 

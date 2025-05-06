@@ -1,15 +1,18 @@
 from django.shortcuts import get_object_or_404
+from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
 
 from projects.models import ProjectMember, MemberDepartment
 from projects.renderers import ProjectMemberListRenderer, DepartmentListRenderer
 from projects.serializers import ProjectMemberSerializer
 from projects.serializers.department import DepartmentMemberSerializer
-from projects.views.base import ProjectBasedViewSet, BaseProjectMembershipViewSet
+from projects.views.base import ProjectBasedModelViewSet
+from roles.services.enum import PermissionsEnum
+from roles.services.decorators import require_permissions
 
 
-class ProjectMemberViewSet(ProjectBasedViewSet):
+class ProjectMemberViewSet(ProjectBasedModelViewSet):
     http_method_names = ['get', 'delete', 'head', 'options']
     renderer_classes = [ProjectMemberListRenderer]
     serializer_class = ProjectMemberSerializer
@@ -26,15 +29,11 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
             user_id=self.kwargs['pk']
         )
 
+    @require_permissions(
+        PermissionsEnum.MEMBER_MANAGE,
+        compare_rank_with=lambda view, *args, **kwargs: args[0].user_id
+    )
     def perform_destroy(self, instance):
-        project = self.get_project()
-
-        if project.owner_id == instance.user_id:
-            raise PermissionDenied(
-                {"detail": "Невозможно удалить владельца проекта из участников."},
-                code='protected_owner'
-            )
-
         super().perform_destroy(instance)
 
     @action(methods=['get', 'delete'], detail=False)
@@ -43,12 +42,33 @@ class ProjectMemberViewSet(ProjectBasedViewSet):
         if request.method == 'GET':
             return super().retrieve(request)
         elif request.method == 'DELETE':
-            return super().destroy(request)
+            instance = self.get_object()
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ProjectMemberDepartmentViewSet(BaseProjectMembershipViewSet):
-    relation_model = MemberDepartment
-    relation_field = 'department'
+class ProjectMemberDepartmentViewSet(ProjectBasedModelViewSet):
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
     renderer_classes = [DepartmentListRenderer]
     serializer_class = DepartmentMemberSerializer
-    not_found_message = "Пользователь не состоит в указанном отделе."
+
+    def get_queryset(self):
+        return MemberDepartment.objects.filter(
+            department__project_id=self.kwargs['project_pk'],
+            user_id=self.kwargs["member_pk"]
+        )
+
+    def get_object(self):
+        return get_object_or_404(
+            MemberDepartment,
+            department_id= self.kwargs['pk'],
+            user_id=self.kwargs["member_pk"]
+        )
+
+    @require_permissions(PermissionsEnum.MEMBER_DEPARTMENT_ASSIGN)
+    def perform_create(self, serializer):
+        serializer.save(user_id=self.kwargs["member_pk"])
+
+    @require_permissions(PermissionsEnum.MEMBER_DEPARTMENT_ASSIGN)
+    def perform_destroy(self, instance):
+        super().perform_destroy(instance)
