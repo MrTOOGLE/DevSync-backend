@@ -23,6 +23,7 @@ from users.serializers import UserSerializer
 
 User = get_user_model()
 
+
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
     permission_classes = [permissions.IsAuthenticated, ProjectAccessPermission]
@@ -38,14 +39,25 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.action == 'list':
-            return (Project.objects.filter(
-                members__user=self.request.user
+            return (
+                Project.objects
+                .filter(members__user=self.request.user)
+                .select_related('owner')
+                .prefetch_related("members__user")
+                .distinct()
             )
-            .prefetch_related("members__user")
-            .distinct())
         elif self.action == 'public':
-            return Project.public_objects.all()
-        return Project.objects.all()
+            return (
+                Project.public_objects
+                .select_related('owner')
+                .all()
+            )
+        return (
+            Project.objects
+            .select_related('owner')
+            .prefetch_related("members__user")
+            .all()
+        )
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)

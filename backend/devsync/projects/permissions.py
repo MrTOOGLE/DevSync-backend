@@ -23,3 +23,7 @@ class ProjectAccessPermission(BasePermission):
             return True
 
         return project.members.filter(user=request.user).exists()
+
+    def has_object_permission(self, request, view, obj):
+        print(f"FOR {obj}")
+        return True
