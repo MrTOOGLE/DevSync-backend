@@ -126,7 +126,7 @@ class MemberDepartment(models.Model):
 @receiver(post_save, sender=Project)
 def add_owner_as_member(sender, instance, created, **kwargs):
     if created:
-        ProjectMember.objects.get_or_create(
+        ProjectMember(
             project=instance,
             user=instance.owner
-        )
+        ).save()
