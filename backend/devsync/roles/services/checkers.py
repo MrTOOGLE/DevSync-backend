@@ -1,100 +1,99 @@
+import logging
 from abc import ABC, abstractmethod
-from typing import TypeVar, Protocol
+from typing import TypeVar, Protocol, Any, cast, Iterable, Optional
 
+from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
-from typing_extensions import ParamSpec, runtime_checkable, Generic
+from typing_extensions import runtime_checkable, Generic, Mapping
 
+from projects.models import Project
 from roles.models import Role
 
-P = ParamSpec("P")
-R = TypeVar("R")
+T = TypeVar("T")
+
+
+logger = logging.getLogger('django')
 
 
 @runtime_checkable
-class ParamViewFuncGetter(Protocol[P, R]):
-    """
-    Protocol defining a callable that gets parameters from a view function.
-
-    This describes a callable that takes an APIView instance and returns
-    a value of type R, using the parameters P.
-    """
-    def __call__(self: APIView, *args: P.args, **kwargs: P.kwargs) -> R:
+class ParamViewFuncGetter(Protocol[T]):
+    """Protocol for callables that extract parameters from view functions."""
+    def __call__(self: APIView, *args: Any, **kwargs: Any) -> T:
         pass
 
 
-class BaseParamChecker(ABC, Generic[P, R]):
-    """
-    Abstract base class for parameter checkers.
+class BaseParamChecker(ABC, Generic[T]):
+    """Abstract base class for parameter validation against a source value."""
+    def __init__(self, source_getter: ParamViewFuncGetter[T]) -> None:
+        self._source_getter = source_getter
+        self._source: Optional[T] = None
+        self._view: Optional[APIView] = None
 
-    Provides infrastructure for checking parameters against some source value.
-    The source value is obtained through a ParamViewFuncGetter and must be
-    loaded before checking.
-
-    Args:
-        source: A callable that retrieves the source value to check against
-    """
-    def __init__(self, source: ParamViewFuncGetter[P, R]):
-        self._source_getter = source
-        self._source: R = Ellipsis
-
-    def load_source(self, view: APIView, *args: P.args, **kwargs: P.kwargs) -> None:
-        """
-        Load the source value from the given view and arguments.
-
-        Args:
-            view: The APIView instance to get the source from
-            args: Positional arguments to pass to the source getter
-            kwargs: Keyword arguments to pass to the source getter
-        """
+    def load_source(self, view: APIView, *args: Any, **kwargs: Any) -> None:
+        """Load the source value from view context."""
         self._source = self._source_getter(view, *args, **kwargs)
+        self._view = view
 
-    def __call__(self, project_id: int, user_id: int) -> bool:
-        """
-        Check if the user meets the parameter requirements.
-
-        Args:
-            project_id: The project ID to check permissions for
-            user_id: The user ID to check permissions for
-
-        Returns:
-            bool: True if the check passes, False otherwise
-
-        Raises:
-            ValueError: If the source hasn't been loaded
-        """
-        if self._source is Ellipsis:
-            raise ValueError("Source is not loaded. Use firstly .load_source() function.")
-        return self._check(project_id, user_id)
+    def __call__(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+        """Validate parameters against the loaded source."""
+        if self._source is None:
+            raise ValueError(
+                "Source not loaded. Call load_source() first or check source initialization."
+            )
+        return self._check(project, user_id, roles)
 
     @abstractmethod
-    def _check(self, project_id: int, user_id: int) -> bool:
-        """
-        Abstract method to implement the actual parameter check logic.
+    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+        """Implement concrete validation logic in subclasses."""
 
-        Args:
-            project_id: The project ID to check
-            user_id: The user ID to check
-
-        Returns:
-            bool: True if the check passes, False otherwise
-        """
+    @staticmethod
+    def _get_user_rank(roles: Iterable[Role]):
+        """Get the highest rank from user's roles."""
+        return max(roles, key=lambda role: role.rank).rank
 
 
-class RankChecker(BaseParamChecker[P, int]):
-    """
-    Checker that verifies if a user's rank is higher than a source rank.
-
-    The source rank is obtained through the source getter and compared against
-    the user's rank in the specified project.
-    """
-    def _check(self, project_id: int, user_id: int) -> bool:
-        user_rank = Role.objects.filter(
-            project_id=project_id,
-            members__user_id=user_id,
-        ).order_by('-rank').only('rank').first().rank
-        return user_rank > self._source
+class RankChecker(BaseParamChecker[int]):
+    """Validates if user's rank exceeds the source rank."""
+    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+        return self._get_user_rank(roles) > self._source
 
 
-get_rank_from_validated_data = lambda view, *args, **kwargs: args[0].validated_data['rank']
-get_rank_from_role_instance = lambda view, *args, **kwargs: args[0].rank
-get_rank_from_role_related_instance = lambda view, *args, **kwargs: args[0].role.rank
+class NotOwnerTargetChecker(BaseParamChecker[int]):
+    """Validates that user is not the project owner."""
+    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+        return project.owner_id != user_id
+
+
+class CompareUsersRankChecker(BaseParamChecker[int]):
+    """Compares ranks between current user and source user."""
+    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+        if project.owner_id == user_id:
+            return True
+        if project.owner_id == self._source:
+            return False
+        highest_role = Role.objects.filter(
+            project_id=project.id,
+            members__user_id=self._source
+        ).only('rank').order_by('-rank').first()
+
+        return self._get_user_rank(roles) > highest_role.rank
+
+
+def source_path(attr: str, _default: T = None, _attr_index=1) -> ParamViewFuncGetter[T]:
+    """Factory for creating type-safe attribute path getters."""
+    def getter(*args: Any, **kwargs: Any) -> T:
+        current = args[_attr_index]
+        if isinstance(current, Serializer):
+            current = current.validated_data
+        for part in attr.split('.'):
+            if current is _default:
+                break
+            current = (
+                current.get(part, _default)
+                if isinstance(current, Mapping)
+                else getattr(current, part, _default)
+            )
+
+        return cast(T, current)
+
+    return getter

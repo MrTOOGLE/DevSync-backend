@@ -8,3 +8,8 @@ def cleanup_old_notifications():
 
     cutoff = timezone.now() - timedelta(weeks=2)
     Notification.objects.filter(created_at__lt=cutoff).delete()
+
+
+@shared_task
+def create_notifications():
+    pass

@@ -1,14 +1,20 @@
-from django.http import HttpResponse
-from django.shortcuts import render
-
-from api.tasks import send_confirm_account_email
-from config import settings
+from rest_framework import mixins, viewsets
 
 
-def index(request):
-    return HttpResponse("Hello")
+class ReadDeleteViewSet(
+    mixins.RetrieveModelMixin,
+    mixins.ListModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet
+):
+    pass
 
 
-def send_test_mail(request):
-    send_confirm_account_email.delay(settings.EMAIL_TEST_HOST_USER)
-    return HttpResponse("Sent successfully")
+class ReadCreateDeleteViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet
+):
+    pass

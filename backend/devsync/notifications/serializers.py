@@ -10,8 +10,21 @@ class NotificationSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'message', 'created_at', 'is_read', 'actions_data', 'footnote']
         read_only_fields = ['id', 'title', 'message', 'created_at', 'actions_data', 'footnote']
 
-    def get_message(self, obj):
-        return obj.formatted_message
+    def get_message(self, obj: Notification):
+        if hasattr(obj, 'prefetched_context_objects'):
+            context_data = {
+                context.name: context.content_object
+                for context in obj.prefetched_context_objects
+            }
+        else:
+            context_data = {
+                context.name: context.content_object
+                for context in obj.context_objects.prefetch_related('content_object').all()
+            }
+        try:
+            return obj.message.format(**context_data)
+        except (KeyError, AttributeError):
+            return obj.message
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -27,35 +40,3 @@ class NotificationSerializer(serializers.ModelSerializer):
             representation['actions_data'] = actions_data
 
         return representation
-
-
-class NotificationActionSerializer(serializers.Serializer):
-    action_number = serializers.IntegerField(min_value=1, max_value=100)
-
-    def validate_action_number(self, value):
-        notification = self.context.get('notification')
-
-        actions = getattr(notification, 'actions_data', [])
-        if not actions:
-            raise serializers.ValidationError(
-                {"actions": "У уведомления нет доступных действий"}
-            )
-
-        action_index = value - 1
-        if action_index >= len(actions):
-            raise serializers.ValidationError(
-                {"action_number": f"Уведомление не содержит действия с номером {value}. "
-                                  f"Доступные действия: 1-{len(actions)}"}
-            )
-
-        return value
-
-    def validate(self, attrs):
-        attrs = super().validate(attrs)
-        notification = self.context['notification']
-        actions = notification.actions_data
-        action_index = attrs['action_number'] - 1
-
-        attrs['action'] = actions[action_index]
-
-        return attrs

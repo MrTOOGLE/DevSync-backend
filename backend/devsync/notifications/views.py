@@ -1,21 +1,34 @@
-from rest_framework import viewsets, permissions, status
+from django.db.models import Prefetch
+from rest_framework import permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from notifications.models import Notification
+from api.views import ReadDeleteViewSet
+from notifications.models import Notification, NotificationContextObject
 from notifications.renderers import NotificationRenderer
 from notifications.serializers import NotificationSerializer
 
 
-class NotificationViewSet(viewsets.ModelViewSet):
-    http_method_names = ['get', 'delete', 'head', 'options', 'trace']
+class NotificationViewSet(ReadDeleteViewSet):
     serializer_class = NotificationSerializer
     permission_classes = [permissions.IsAuthenticated]
     renderer_classes = [NotificationRenderer]
     lookup_url_kwarg = "notification_pk"
 
     def get_queryset(self):
-        return Notification.visible_objects.filter(user=self.request.user)
+        return Notification.visible_objects.filter(
+            user=self.request.user
+        ).select_related(
+            'content_type'
+        ).prefetch_related(
+            Prefetch(
+                'context_objects',
+                queryset=NotificationContextObject.objects.select_related(
+                    'content_type'
+                ).prefetch_related('content_object'),
+                to_attr='prefetched_context_objects'
+            )
+        )
 
     @action(methods=['put'], detail=False)
     def mark_as_read(self, request, *args, **kwargs):

@@ -1,20 +1,28 @@
-from projects.models import Department
+from django.db.models import Prefetch
+
+from projects.models import Department, MemberDepartment
 from projects.renderers import DepartmentListRenderer
 from projects.serializers import DepartmentWithMembersSerializer
 from projects.serializers.department import DepartmentSerializer
-from projects.views.base import ProjectBasedModelViewSet
-from roles.services.decorators import require_permissions
+from projects.views import ProjectBasedModelViewSet
+from roles.services.permissions import require_permissions
 from roles.services.enum import PermissionsEnum
 
 
 class DepartmentViewSet(ProjectBasedModelViewSet):
     renderer_classes = [DepartmentListRenderer]
-    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
-        return Department.objects.filter(
-            project_id=self.kwargs['project_pk']
-        ).prefetch_related('members__user')
+        queryset = Department.objects.filter(project_id=self.project.id)
+        if self.request.query_params.get('members', '').lower() in ['true', '1']:
+            queryset = queryset.prefetch_related(
+                Prefetch(
+                    'members',
+                    queryset=MemberDepartment.objects.select_related('user'),
+                    to_attr='prefetched_members'
+                )
+            )
+        return queryset
 
     def get_serializer_class(self):
         with_members = self.request.query_params.get('members', None)
@@ -24,7 +32,7 @@ class DepartmentViewSet(ProjectBasedModelViewSet):
 
     @require_permissions(PermissionsEnum.DEPARTMENT_MANAGE)
     def perform_create(self, serializer):
-        serializer.save(project=self.get_project())
+        serializer.save(project=self.project)
 
     @require_permissions(PermissionsEnum.DEPARTMENT_MANAGE)
     def perform_destroy(self, instance):

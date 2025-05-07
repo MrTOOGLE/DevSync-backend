@@ -7,7 +7,9 @@ from rest_framework.viewsets import GenericViewSet
 
 from projects.views.base import (
     ProjectBasedModelViewSet,
-    ProjectBasedMixin
+    ProjectBasedMixin,
+    ProjectMemberBasedReadCreateDeleteViewSet,
+    ProjectMemberBasedMixin
 )
 from roles.models import Role, MemberRole
 from roles.renderers import RoleListRenderer, RolePermissionsRenderer
@@ -18,31 +20,27 @@ from roles.serializers import (
     PermissionsSerializer,
     RolePermissionSerializer
 )
+from roles.services import cache
 from roles.services.checkers import (
     RankChecker,
-    get_rank_from_role_related_instance,
-    get_rank_from_role_instance,
-    get_rank_from_validated_data
+    source_path
 )
-from roles.services.decorators import require_permissions
-from roles.services.enum import PermissionsEnum
-from roles.services.services import (
+from roles.services.crud import (
     get_role_permissions,
     update_role_permissions,
-    get_member_permissions
+    get_roles_queryset, get_role
 )
+from roles.services.enum import PermissionsEnum
+from roles.services.permissions import get_member_permissions, require_permissions
 
 
 class RoleViewSet(ProjectBasedModelViewSet):
     renderer_classes = [RoleListRenderer]
-    http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
     serializer_class = RoleSerializer
+    cache_timeout = 60 * 15
 
     def get_queryset(self):
-        queryset = Role.objects.filter(project_id=self.kwargs['project_pk'])
-        if self.request.query_params.get('members', '').lower() in ['true', '1']:
-            queryset = queryset.prefetch_related('members__user')
-        return queryset
+        return get_roles_queryset(self.project, self.cache_timeout)
 
     def get_serializer_class(self):
         with_members = self.request.query_params.get('members', None)
@@ -50,59 +48,70 @@ class RoleViewSet(ProjectBasedModelViewSet):
             return RoleWithMembersSerializer
         return RoleSerializer
 
-    @require_permissions(
-        PermissionsEnum.ROLE_MANAGE,
-        checkers=[RankChecker(get_rank_from_validated_data)],
-    )
-    def perform_create(self, serializer):
-        serializer.save(project=self.get_project())
+    def get_object(self):
+        return get_role(self.project, int(self.kwargs['pk']), self.cache_timeout)
 
     @require_permissions(
         PermissionsEnum.ROLE_MANAGE,
-        checkers=[RankChecker(get_rank_from_validated_data)],
+        checkers=[RankChecker(source_path('rank', 1))],
+    )
+    def perform_create(self, serializer):
+        serializer.save(project=self.project)
+        cache.invalidate_role(serializer.instance.id, self.project.id)
+
+    @require_permissions(
+        PermissionsEnum.ROLE_MANAGE,
+        checkers=[RankChecker(source_path('object.rank', _attr_index=0))],
     )
     def perform_update(self, serializer):
         super().perform_update(serializer)
+        cache.invalidate_role(serializer.instance.id, self.project.id)
+        if serializer.validated_data.get('rank'):
+            cache.invalidate_project_permissions(self.project.id)
 
     @require_permissions(
         PermissionsEnum.ROLE_MANAGE,
-        checkers=[RankChecker(get_rank_from_role_instance)],
+        checkers=[RankChecker(source_path('rank'))],
     )
     def perform_destroy(self, instance):
         super().perform_destroy(instance)
+        cache.invalidate_role(instance.id, self.project.id)
+        cache.invalidate_project_permissions(self.project.id)
 
 
-class ProjectMemberRoleViewSet(ProjectBasedModelViewSet):
-    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+class ProjectMemberRoleViewSet(ProjectMemberBasedReadCreateDeleteViewSet):
     renderer_classes = [RoleListRenderer]
     serializer_class = MemberRoleSerializer
 
     def get_queryset(self):
         return MemberRole.objects.filter(
             role__project_id=self.kwargs['project_pk'],
-            user_id=self.kwargs['member_pk']
-        )
+            user_id=self.member.user_id
+        ).select_related('role')
 
     def get_object(self):
         return get_object_or_404(
-            MemberRole,
+            self.get_queryset(),
             role_id=self.kwargs['pk'],
-            user_id=self.kwargs['member_pk']
         )
 
     @require_permissions(
         PermissionsEnum.MEMBER_ROLE_ASSIGN,
-        checkers=[RankChecker(get_rank_from_validated_data)]
+        checkers=[RankChecker(source_path('role.rank'))]
     )
     def perform_create(self, serializer):
-        serializer.save(user_id=self.kwargs['member_pk'])
+        serializer.save(user_id=self.member.user_id)
+        cache.invalidate_role(serializer.instance.role.id, self.project.id)
+        cache.invalidate_user_permissions(self.project.id, self.member.user_id)
 
     @require_permissions(
         PermissionsEnum.MEMBER_ROLE_ASSIGN,
-        checkers=[RankChecker(get_rank_from_role_related_instance)]
+        checkers=[RankChecker(source_path('role.rank'))]
     )
     def perform_destroy(self, instance):
         super().perform_destroy(instance)
+        cache.invalidate_role(instance.role.id, self.project.id)
+        cache.invalidate_user_permissions(self.project.id, self.member.user_id)
 
 
 class RolePermissionsViewSet(
@@ -115,14 +124,18 @@ class RolePermissionsViewSet(
     renderer_classes = (RolePermissionsRenderer,)
 
     def get_queryset(self):
+        role = self.get_object()
+        return get_role_permissions(role)
+
+    def get_object(self):
         role_id = int(self.kwargs['role_pk'])
-        return get_role_permissions(role_id)
+        role = get_object_or_404(Role, pk=role_id)
+        return role
 
     @action(methods=['patch'], detail=False)
     @require_permissions(PermissionsEnum.ROLE_MANAGE)
     def batch(self, request, *args, **kwargs):
-        role_id = self.kwargs['role_pk']
-        role = get_object_or_404(Role, pk=role_id)
+        role = self.get_object()
         serializer = PermissionsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         updated_permissions = update_role_permissions(role, serializer.validated_data)
@@ -133,14 +146,12 @@ class RolePermissionsViewSet(
 
 
 class MemberPermissionsViewSet(
-    ProjectBasedMixin,
+    ProjectMemberBasedMixin,
     ListModelMixin,
     GenericViewSet
 ):
     def list(self, request, *args, **kwargs):
-        project_pk = int(self.kwargs['project_pk'])
-        user_pk = int(self.kwargs['member_pk'])
-        permissions = get_member_permissions(project_pk, user_pk)
+        permissions = get_member_permissions(self.project, self.member.user_id)
         serializer = PermissionsSerializer(data=permissions)
         serializer.is_valid(raise_exception=True)
 

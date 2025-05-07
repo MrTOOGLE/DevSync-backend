@@ -11,17 +11,17 @@ from projects.renderers import ProjectInvitationListRenderer
 from projects.serializers import (
     ProjectInvitationSerializer,
     ProjectInvitationCreateSerializer,
-    ProjectInvitationActionSerializer
+    ProjectInvitationActionSerializer,
 )
+from projects.serializers.invitation import ProjectInvitationWithProjectSerializer
 from projects.services import ProjectInvitationService, ProjectInvitationNotificationService
-from projects.views.base import ProjectBasedModelViewSet
-from roles.services.decorators import require_permissions
+from projects.views import ProjectBasedReadCreateDeleteViewSet
+from roles.services.permissions import require_permissions
 from roles.services.enum import PermissionsEnum
 
 
-class ProjectInvitationViewSet(ProjectBasedModelViewSet):
+class ProjectInvitationViewSet(ProjectBasedReadCreateDeleteViewSet):
     renderer_classes = [ProjectInvitationListRenderer]
-    http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -34,8 +34,8 @@ class ProjectInvitationViewSet(ProjectBasedModelViewSet):
 
     def get_queryset(self):
         return ProjectInvitation.objects.filter(
-            project_id=self.kwargs['project_pk']
-        )
+            project_id=self.project.id
+        ).select_related('user')
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -44,12 +44,13 @@ class ProjectInvitationViewSet(ProjectBasedModelViewSet):
 
     @require_permissions(PermissionsEnum.MEMBER_MANAGE)
     def perform_create(self, serializer):
-        invitation = serializer.save(project=self.get_project(), invited_by=self.request.user)
+        invitation = serializer.save(project=self.project, invited_by=self.request.user)
         self._notification_service.create_notification(invitation.user, invitation)
 
     @require_permissions(PermissionsEnum.MEMBER_MANAGE)
-    def perform_destroy(self, instance):
-        instance.delete()
+    def perform_destroy(self, invitation):
+        self._notification_service.delete_notification(invitation.user, invitation)
+        invitation.delete()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -61,7 +62,7 @@ class InvitationViewSet(viewsets.ReadOnlyModelViewSet):
     renderer_classes = [ProjectInvitationListRenderer]
     permission_classes = [IsAuthenticated]
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
-    serializer_class = ProjectInvitationSerializer
+    serializer_class = ProjectInvitationWithProjectSerializer
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -73,7 +74,9 @@ class InvitationViewSet(viewsets.ReadOnlyModelViewSet):
         self._invitations_service = ProjectInvitationService(self._notification_service)
 
     def get_queryset(self):
-        return ProjectInvitation.objects.filter(user=self.request.user)
+        return ProjectInvitation.objects.filter(
+            user=self.request.user
+        ).select_related('user', 'project', 'project__owner')
 
     @action(methods=['post'], detail=True)
     def accept(self, request, pk=None):

@@ -28,15 +28,24 @@ class RoleWithMembersSerializer(RoleSerializer):
         fields = RoleSerializer.Meta.fields + ['members']
 
     def get_members(self, obj):
-        users = [member.user for member in obj.members.all()]
-        return UserSerializer(users, many=True).data
+        if hasattr(obj, 'prefetched_members'):
+            users = [member.user for member in obj.prefetched_members]
+        else:
+            members = obj.members.select_related('user').all()
+            users = [member.user for member in members]
+
+        return UserSerializer(
+            users,
+            many=True,
+            context=self.context
+        ).data
 
 
 class MemberRoleSerializer(serializers.ModelSerializer):
     role_id = serializers.PrimaryKeyRelatedField(
         queryset=Role.objects.all(),
         write_only=True,
-        source="role"
+        source="role",
     )
     role = RoleSerializer(read_only=True)
 
@@ -45,31 +54,31 @@ class MemberRoleSerializer(serializers.ModelSerializer):
         fields = ['role', 'role_id', 'date_added']
 
     def validate_role_id(self, value: Role):
-        project_id = int(self.context['view'].kwargs['project_pk'])
+        view = self.context['view']
+        project_id = int(view.kwargs['project_pk'])
+        user_id = int(view.kwargs['member_pk'])
+
         if value.project_id != project_id:
             raise serializers.ValidationError(
-                {'role_id': 'Данной роли не существует в этом проекте.'},
+                'Данной роли не существует в этом проекте.',
                 code='invalid_role'
             )
+
         if value.is_everyone:
             raise serializers.ValidationError(
-                {'role_id': r'Вы не можете назначать\удалять данную роль участникам.'},
+                'Вы не можете назначать или удалять данную роль участникам.',
+                code='invalid_role'
+            )
+
+        if MemberRole.objects.filter(
+                user_id=user_id,
+                role_id=value.id
+        ).exists():
+            raise serializers.ValidationError(
+                "Пользователь уже имеет данную роль.",
                 code='invalid_role'
             )
         return value
-
-    def validate(self, attrs):
-        user_id = int(self.context['view'].kwargs['member_pk'])
-        role = attrs.get('role')
-        if MemberRole.objects.filter(
-                user_id=user_id,
-                role=role
-        ).exists():
-            raise serializers.ValidationError(
-                {"role_id": "Пользователь уже имеет данную роль."},
-                code='invalid_role'
-            )
-        return attrs
 
 
 class PermissionSerializer(serializers.ModelSerializer):

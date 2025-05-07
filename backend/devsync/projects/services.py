@@ -20,7 +20,7 @@ class ProjectInvitationNotificationService(NotificationService[ProjectInvitation
             context_service: NotificationContextServiceBase
     ):
         template = template_loader.get_template(template_name)
-        super().__init__(template_loader, TemplateNotificationFactory( #TODO
+        super().__init__(template_loader, TemplateNotificationFactory(
             template,
             TemplateActionsBuilder(template)
         ))

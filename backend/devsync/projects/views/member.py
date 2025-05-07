@@ -7,13 +7,20 @@ from projects.models import ProjectMember, MemberDepartment
 from projects.renderers import ProjectMemberListRenderer, DepartmentListRenderer
 from projects.serializers import ProjectMemberSerializer
 from projects.serializers.department import DepartmentMemberSerializer
-from projects.views.base import ProjectBasedModelViewSet
+from projects.views.base import (
+    ProjectMemberBasedReadDeleteViewSet,
+    ProjectMemberBasedReadCreateDeleteViewSet
+)
+from roles.services.checkers import (
+    NotOwnerTargetChecker,
+    source_path,
+    CompareUsersRankChecker
+)
 from roles.services.enum import PermissionsEnum
-from roles.services.decorators import require_permissions
+from roles.services.permissions import require_permissions
 
 
-class ProjectMemberViewSet(ProjectBasedModelViewSet):
-    http_method_names = ['get', 'delete', 'head', 'options']
+class ProjectMemberViewSet(ProjectMemberBasedReadDeleteViewSet):
     renderer_classes = [ProjectMemberListRenderer]
     serializer_class = ProjectMemberSerializer
 
@@ -23,15 +30,14 @@ class ProjectMemberViewSet(ProjectBasedModelViewSet):
         ).select_related('user')
 
     def get_object(self):
-        return get_object_or_404(
-            ProjectMember,
-            project_id=self.kwargs['project_pk'],
-            user_id=self.kwargs['pk']
-        )
+        return self.member
 
     @require_permissions(
         PermissionsEnum.MEMBER_MANAGE,
-        compare_rank_with=lambda view, *args, **kwargs: args[0].user_id
+        checkers=[
+            CompareUsersRankChecker(source_path('user_id')),
+            NotOwnerTargetChecker(source_path('user_id'))
+        ]
     )
     def perform_destroy(self, instance):
         super().perform_destroy(instance)
@@ -47,27 +53,25 @@ class ProjectMemberViewSet(ProjectBasedModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ProjectMemberDepartmentViewSet(ProjectBasedModelViewSet):
-    http_method_names = ['get', 'post', 'delete', 'head', 'options']
+class ProjectMemberDepartmentViewSet(ProjectMemberBasedReadCreateDeleteViewSet):
     renderer_classes = [DepartmentListRenderer]
     serializer_class = DepartmentMemberSerializer
 
     def get_queryset(self):
         return MemberDepartment.objects.filter(
-            department__project_id=self.kwargs['project_pk'],
-            user_id=self.kwargs["member_pk"]
-        )
+            department__project_id=self.project.id,
+            user_id=self.member.user_id
+        ).select_related('department')
 
     def get_object(self):
         return get_object_or_404(
-            MemberDepartment,
+            self.get_queryset(),
             department_id= self.kwargs['pk'],
-            user_id=self.kwargs["member_pk"]
         )
 
     @require_permissions(PermissionsEnum.MEMBER_DEPARTMENT_ASSIGN)
     def perform_create(self, serializer):
-        serializer.save(user_id=self.kwargs["member_pk"])
+        serializer.save(user_id=self.member.user_id)
 
     @require_permissions(PermissionsEnum.MEMBER_DEPARTMENT_ASSIGN)
     def perform_destroy(self, instance):

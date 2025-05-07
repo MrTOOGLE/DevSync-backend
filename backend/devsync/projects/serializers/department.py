@@ -11,8 +11,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
         fields = [
-            'id', 'title', 'date_created',
-            'description'
+            'id', 'title', 'date_created', 'description'
         ]
         read_only_fields = ['id', 'date_created']
         extra_kwargs = {
@@ -28,9 +27,17 @@ class DepartmentWithMembersSerializer(DepartmentSerializer):
         fields = DepartmentSerializer.Meta.fields + ['members']
 
     def get_members(self, obj):
-        users = [member.user for member in obj.members.all()]
-        return UserSerializer(users, many=True).data
+        if hasattr(obj, 'prefetched_members'):
+            users = [member.user for member in obj.prefetched_members]
+        else:
+            members = obj.members.select_related('user').all()
+            users = [member.user for member in members]
 
+        return UserSerializer(
+            users,
+            many=True,
+            context=self.context
+        ).data
 
 class DepartmentMemberSerializer(serializers.ModelSerializer):
     department_id = serializers.PrimaryKeyRelatedField(
@@ -46,23 +53,20 @@ class DepartmentMemberSerializer(serializers.ModelSerializer):
         read_only_fields = ['date_joined']
 
     def validate_department_id(self, value):
-        project_id = int(self.context['view'].kwargs['project_pk'])
+        view = self.context['view']
+        project_id = int(view.kwargs['project_pk'])
+        user_id = int(view.kwargs['member_pk'])
         if value.project_id != project_id:
             raise serializers.ValidationError(
                 {'department_id': 'Данного отдела не существует в этом проекте.'},
                 code='invalid_department'
             )
-        return value
-
-    def validate(self, attrs):
-        user_id = int(self.context['view'].kwargs['member_pk'])
-        department = attrs.get('department')
         if MemberDepartment.objects.filter(
                 user_id=user_id,
-                department=department
+                department=value
         ).exists():
             raise serializers.ValidationError(
                 {"department_id": "Пользователь уже состоит в этом отделе."},
                 code='invalid_department'
             )
-        return attrs
+        return value
