@@ -23,6 +23,7 @@ from roles.services.permissions import require_permissions
 class ProjectMemberViewSet(ProjectMemberBasedReadDeleteViewSet):
     renderer_classes = [ProjectMemberListRenderer]
     serializer_class = ProjectMemberSerializer
+    member_lookup = 'pk'
 
     def get_queryset(self):
         return ProjectMember.objects.filter(
