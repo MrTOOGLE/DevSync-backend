@@ -107,8 +107,9 @@ def check_permissions(
 
     Checks performed in order:
     1. Owner validation (if only_owner=True)
-    2. Specific permission checks
-    3. Custom checker validations
+    2. Pre-checkers (custom checks that run before permission validation)
+    3. Required permissions check
+    4. Post-checkers (custom checks that run after permission validation)
 
     Args:
         project: Project to check permissions against
@@ -125,43 +126,91 @@ def check_permissions(
 
     if only_owner:
         raise PermissionDenied()
-    user_roles = _fetch_user_roles_with_permissions(project, user_id)
-    if required_permissions:
-        verified_permissions = cache.get_cached_permissions_check(project.id, user_id, required_permissions)
-        if verified_permissions is None:
-            try:
-                _verify_permissions(
-                    project,
-                    user_id,
-                    user_roles,
-                    (*required_permissions, PermissionsEnum.PROJECT_MANAGE)
-                )
-                cache.cache_permissions_check(project.id, user_id, required_permissions, True, 60 * 60)
-            except PermissionDenied:
-                cache.cache_permissions_check(project.id, user_id, required_permissions, False, 60 * 60)
-        elif not verified_permissions:
-            raise PermissionDenied()
 
+    user_roles = _fetch_user_roles_with_permissions(project, user_id)
+
+    if _run_checkers(
+            checkers=[c for c in checkers if c.check_order == 'pre'],
+            project=project,
+            user_id=user_id,
+            user_roles=user_roles
+    ):
+        return
+    if required_permissions:
+        _check_required_permissions(
+            required_permissions=required_permissions,
+            project=project,
+            user_id=user_id,
+            user_roles=user_roles
+        )
+
+    _run_checkers(
+        checkers=[c for c in checkers if c.check_order == 'post'],
+        project=project,
+        user_id=user_id,
+        user_roles=user_roles
+    )
+
+
+def _run_checkers(
+        checkers: Iterable[BaseParamChecker],
+        project: Project,
+        user_id: int,
+        user_roles: Iterable[Role]
+) -> bool:
     for checker in checkers:
-        if not checker(project, user_id, user_roles):
+        if checker(project, user_id, user_roles):
+            if checker.stop_on_success:
+                return True
+        else:
             raise PermissionDenied()
+    return False
+
+
+def _check_required_permissions(
+        required_permissions: Iterable[PermissionsEnum | str],
+        project: Project,
+        user_id: int,
+        user_roles: Iterable[Role]
+) -> None:
+    cached_result = cache.get_cached_permissions_check(
+        project.id, user_id, required_permissions
+    )
+
+    if cached_result is not None:
+        if not cached_result:
+            raise PermissionDenied()
+        return
+
+    try:
+        _verify_permissions(
+            project,
+            user_id,
+            user_roles,
+            (*required_permissions, PermissionsEnum.PROJECT_MANAGE)
+        )
+        cache.cache_permissions_check(
+            project.id, user_id, required_permissions, True, 3600
+        )
+    except PermissionDenied:
+        cache.cache_permissions_check(
+            project.id, user_id, required_permissions, False, 3600
+        )
+        raise
 
 
 def _verify_permissions(
         project: Project,
         user_id: int,
-        roles: list[Role],
+        roles: Iterable[Role],
         permissions: Iterable[PermissionsEnum | str]
 ) -> None:
     user_permissions = _get_member_permissions(project, user_id, roles)
     if not _has_any_permission(user_permissions, permissions):
-        permission_names = [_get_permission_name(p) for p in permissions]
-        raise PermissionDenied(
-            detail=f"Missing required permission: any of {', '.join(permission_names)}"
-        )
+        raise PermissionDenied()
 
 
-def _get_member_permissions(project: Project, user_id: int, roles: list[Role]) -> dict[str, bool]:
+def _get_member_permissions(project: Project, user_id: int, roles: Iterable[Role]) -> dict[str, bool]:
     permissions = Permission.objects.cached()
 
     if project.owner_id == user_id:

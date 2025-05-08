@@ -61,7 +61,7 @@ class RoleViewSet(ProjectBasedModelViewSet):
 
     @require_permissions(
         PermissionsEnum.ROLE_MANAGE,
-        checkers=[RankChecker(source_path('object.rank', _attr_index=0))],
+        checkers=[RankChecker(source_path('object.rank', attr_index=0))],
     )
     def perform_update(self, serializer):
         super().perform_update(serializer)
