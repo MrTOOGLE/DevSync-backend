@@ -20,6 +20,12 @@ class RoleSerializer(serializers.ModelSerializer):
         }
         read_only_fields = ['id', 'is_everyone', 'date_created']
 
+    def update(self, instance, validated_data: dict):
+        if instance.is_everyone:
+            for attr in ['rank', 'name']:
+                validated_data.pop(attr, None)
+        return super().update(instance, validated_data)
+
 
 class RoleWithMembersSerializer(RoleSerializer):
     members = serializers.SerializerMethodField()
