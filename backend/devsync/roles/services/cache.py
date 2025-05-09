@@ -13,9 +13,9 @@ from roles.services.enum import PermissionsEnum
 
 class CacheKeys:
     ROLE = "role:{role_pk}"
-    ROLES = "project:{project_pk}:roles"
-    USER_PERMISSIONS = "project:{project_pk}:user:{user_pk}:permissions"
-    USER_ROLES = "project:{project_pk}:user:{user_pk}:roles"
+    ROLES = "prj:{project_pk}:roles"
+    USER_PERMISSIONS = "prj:{project_pk}:user:{user_pk}:perms"
+    USER_ROLES = "prj:{project_pk}:user:{user_pk}:roles"
     PERMISSIONS_CHECK = "perm:{project_pk}:{user_pk}:{perms}"
 
 
@@ -69,7 +69,6 @@ def get_cached_user_permissions(project_pk: int, user_pk: int) -> dict[str, bool
 
 def cache_user_permissions(project_pk: int, user_pk: int, permissions: dict[str, bool], timeout: int) -> None:
     cache_key = get_user_permissions_key(project_pk, user_pk)
-    print("CACHE", cache_key)
     cache.set(cache_key, permissions, timeout)
 
 

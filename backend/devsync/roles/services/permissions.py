@@ -128,12 +128,12 @@ def check_permissions(
         raise PermissionDenied()
 
     user_roles = _fetch_user_roles_with_permissions(project, user_id)
-
+    user_rank = user_roles[0].rank
     if _run_checkers(
             checkers=[c for c in checkers if c.check_order == 'pre'],
             project=project,
             user_id=user_id,
-            user_roles=user_roles
+            user_rank=user_rank
     ):
         return
     if required_permissions:
@@ -148,7 +148,7 @@ def check_permissions(
         checkers=[c for c in checkers if c.check_order == 'post'],
         project=project,
         user_id=user_id,
-        user_roles=user_roles
+        user_rank=user_rank
     )
 
 
@@ -156,10 +156,10 @@ def _run_checkers(
         checkers: Iterable[BaseParamChecker],
         project: Project,
         user_id: int,
-        user_roles: Iterable[Role]
+        user_rank: int
 ) -> bool:
     for checker in checkers:
-        if checker(project, user_id, user_roles):
+        if checker(project, user_id, user_rank):
             if checker.stop_on_success:
                 return True
         else:

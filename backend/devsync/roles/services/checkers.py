@@ -49,42 +49,37 @@ class BaseParamChecker(ABC, Generic[T]):
         self._source = self._source_getter(view, *args, **kwargs)
         self._view = view
 
-    def __call__(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+    def __call__(self, project: Project, user_id: int, user_rank: int) -> bool:
         """Validate parameters against the loaded source."""
         if self._source is Ellipsis:
             raise ValueError(
                 "Source not loaded. Call load_source() first or check source initialization."
             )
-        return self._check(project, user_id, roles)
+        return self._check(project, user_id, user_rank)
 
     @abstractmethod
-    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+    def _check(self, project: Project, user_id: int, user_rank: int) -> bool:
         """Implement concrete validation logic in subclasses."""
-
-    @staticmethod
-    def _get_user_rank(roles: Iterable[Role]):
-        """Get the highest rank from user's roles."""
-        return max(roles, key=lambda role: role.rank).rank
 
 
 class RankChecker(BaseParamChecker[int]):
     """Validates if user's rank exceeds the source rank."""
 
-    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
-        return self._get_user_rank(roles) > self._source
+    def _check(self, project: Project, user_id: int, user_rank: int) -> bool:
+        return user_rank > self._source
 
 
 class NotOwnerTargetChecker(BaseParamChecker[int]):
     """Validates that user is not the project owner."""
 
-    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+    def _check(self, project: Project, user_id: int, user_rank: int) -> bool:
         return project.owner_id != user_id
 
 
 class CompareUsersRankChecker(BaseParamChecker[int]):
     """Compares ranks between current user and source user."""
 
-    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+    def _check(self, project: Project, user_id: int, user_rank: int) -> bool:
         if project.owner_id == user_id:
             return True
         if project.owner_id == self._source:
@@ -94,7 +89,7 @@ class CompareUsersRankChecker(BaseParamChecker[int]):
             members__user_id=self._source
         ).only('rank').order_by('-rank').first()
 
-        return self._get_user_rank(roles) > highest_role.rank
+        return user_rank > highest_role.rank
 
 
 class CreatorBypassChecker(BaseParamChecker[int]):
