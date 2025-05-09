@@ -106,6 +106,6 @@ def init_everyone_role(sender, instance, created, **kwargs):
     if not created:
         return
 
-    from roles.services.services import create_everyone_role
+    from roles.services.crud import create_everyone_role
 
     create_everyone_role(instance.id).save()

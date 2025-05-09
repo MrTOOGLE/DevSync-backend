@@ -69,6 +69,7 @@ def get_cached_user_permissions(project_pk: int, user_pk: int) -> dict[str, bool
 
 def cache_user_permissions(project_pk: int, user_pk: int, permissions: dict[str, bool], timeout: int) -> None:
     cache_key = get_user_permissions_key(project_pk, user_pk)
+    print("CACHE", cache_key)
     cache.set(cache_key, permissions, timeout)
 
 

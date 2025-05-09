@@ -27,7 +27,7 @@ class BaseParamChecker(ABC, Generic[T]):
     def __init__(self, source_getter: ParamViewFuncGetter[T], check_order: Literal['post', 'pre'] = 'post',
                  stop_on_success=False) -> None:
         self._source_getter = source_getter
-        self._source: Optional[T] = None
+        self._source: Optional[T] = Ellipsis
         self._view: Optional[APIView] = None
         self._check_order = check_order
         self._stop_on_success = stop_on_success
@@ -51,7 +51,7 @@ class BaseParamChecker(ABC, Generic[T]):
 
     def __call__(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
         """Validate parameters against the loaded source."""
-        if self._source is None:
+        if self._source is Ellipsis:
             raise ValueError(
                 "Source not loaded. Call load_source() first or check source initialization."
             )

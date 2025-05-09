@@ -57,7 +57,7 @@ class RoleViewSet(ProjectBasedModelViewSet):
     )
     def perform_create(self, serializer):
         serializer.save(project=self.project)
-        cache.invalidate_role(serializer.instance.id, self.project.id)
+        cache.invalidate_role(self.project.id, serializer.instance.id)
 
     @require_permissions(
         PermissionsEnum.ROLE_MANAGE,
@@ -65,7 +65,7 @@ class RoleViewSet(ProjectBasedModelViewSet):
     )
     def perform_update(self, serializer):
         super().perform_update(serializer)
-        cache.invalidate_role(serializer.instance.id, self.project.id)
+        cache.invalidate_role(self.project.id, serializer.instance.id)
         if serializer.validated_data.get('rank'):
             cache.invalidate_project_permissions(self.project.id)
 
@@ -75,7 +75,7 @@ class RoleViewSet(ProjectBasedModelViewSet):
     )
     def perform_destroy(self, instance):
         super().perform_destroy(instance)
-        cache.invalidate_role(instance.id, self.project.id)
+        cache.invalidate_role(self.project.id, instance.id)
         cache.invalidate_project_permissions(self.project.id)
 
 
@@ -101,7 +101,7 @@ class ProjectMemberRoleViewSet(ProjectMemberBasedReadCreateDeleteViewSet):
     )
     def perform_create(self, serializer):
         serializer.save(user_id=self.member.user_id)
-        cache.invalidate_role(serializer.instance.role.id, self.project.id)
+        cache.invalidate_role(self.project.id, serializer.instance.role.id)
         cache.invalidate_user_permissions(self.project.id, self.member.user_id)
 
     @require_permissions(
@@ -110,7 +110,7 @@ class ProjectMemberRoleViewSet(ProjectMemberBasedReadCreateDeleteViewSet):
     )
     def perform_destroy(self, instance):
         super().perform_destroy(instance)
-        cache.invalidate_role(instance.role.id, self.project.id)
+        cache.invalidate_role(self.project.id, instance.role.id)
         cache.invalidate_user_permissions(self.project.id, self.member.user_id)
 
 
