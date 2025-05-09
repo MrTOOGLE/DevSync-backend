@@ -4,9 +4,9 @@ from .views import VotingViewSet, VotingOptionViewSet, VotingOptionChoiceViewSet
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
-router.register(r'votings', VotingViewSet, basename='voting')
+router.register(r'projects/(?P<project_pk>[^/.]+)/votings', VotingViewSet, basename='voting')
 
-voting_router = routers.NestedDefaultRouter(router, r'votings', lookup='voting')
+voting_router = routers.NestedDefaultRouter(router, r'projects/(?P<project_pk>[^/.]+)/votings', lookup='voting')
 voting_router.register(r'options', VotingOptionViewSet, basename='voting-option')
 voting_router.register(r'choices', VotingOptionChoiceViewSet, basename='voting-choice')
 voting_router.register(r'comments', VotingCommentViewSet, basename='voting-comment')
