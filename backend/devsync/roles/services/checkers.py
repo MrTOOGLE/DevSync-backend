@@ -1,16 +1,14 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import TypeVar, Protocol, Any, cast, Optional
+from typing import TypeVar, Protocol, Any, Optional
 
-from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
-from typing_extensions import runtime_checkable, Generic, Mapping, Literal
+from typing_extensions import runtime_checkable, Generic, Mapping, Literal, TypeAlias
 
 from projects.models import Project
 from roles.models import Role
 
 T = TypeVar("T")
-
 logger = logging.getLogger('django')
 
 
@@ -22,10 +20,12 @@ class ViewParameterExtractor(Protocol[T]):
         pass
 
 
+Order: TypeAlias = Literal['post', 'pre']
+
+
 class BaseParamChecker(ABC, Generic[T]):
 
-    def __init__(self, source_getter: ViewParameterExtractor[T], check_order: Literal['post', 'pre'] = 'post',
-                 stop_on_success=False) -> None:
+    def __init__(self, source_getter: ViewParameterExtractor[T], check_order: Order = 'post', stop_on_success=False):
         self._source_getter = source_getter
         self._source: Optional[T] = Ellipsis
         self._view: Optional[APIView] = None
@@ -33,7 +33,7 @@ class BaseParamChecker(ABC, Generic[T]):
         self._stop_on_success = stop_on_success
 
     @property
-    def check_order(self) -> Literal['post', 'pre']:
+    def check_order(self) -> Order:
         return self._check_order
 
     @property
@@ -121,7 +121,7 @@ def source_path(attr: str, default: T = None, attr_index=1) -> ViewParameterExtr
 
     def getter(*args: Any, **kwargs: Any) -> T:
         current = args[attr_index]
-        if isinstance(current, Serializer):
+        if hasattr(current, 'validated_data'):
             current = current.validated_data
         for part in attr.split('.'):
             if current is default:
@@ -132,6 +132,6 @@ def source_path(attr: str, default: T = None, attr_index=1) -> ViewParameterExtr
                 else getattr(current, part, default)
             )
 
-        return cast(T, current)
+        return current
 
     return getter
