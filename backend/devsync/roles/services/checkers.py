@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import TypeVar, Protocol, Any, cast, Iterable, Optional
+from typing import TypeVar, Protocol, Any, cast, Optional
 
 from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
@@ -15,7 +15,7 @@ logger = logging.getLogger('django')
 
 
 @runtime_checkable
-class ParamViewFuncGetter(Protocol[T]):
+class ViewParameterExtractor(Protocol[T]):
     """Protocol for callables that extract parameters from view functions."""
 
     def __call__(self: APIView, *args: Any, **kwargs: Any) -> T:
@@ -24,7 +24,7 @@ class ParamViewFuncGetter(Protocol[T]):
 
 class BaseParamChecker(ABC, Generic[T]):
 
-    def __init__(self, source_getter: ParamViewFuncGetter[T], check_order: Literal['post', 'pre'] = 'post',
+    def __init__(self, source_getter: ViewParameterExtractor[T], check_order: Literal['post', 'pre'] = 'post',
                  stop_on_success=False) -> None:
         self._source_getter = source_getter
         self._source: Optional[T] = Ellipsis
@@ -98,15 +98,15 @@ class CreatorBypassChecker(BaseParamChecker[int]):
     Runs early (pre-check) and stops further checks on success.
     """
 
-    def __init__(self, source_getter: ParamViewFuncGetter[T], check_order: Literal['post', 'pre'] = 'pre',
+    def __init__(self, source_getter: ViewParameterExtractor[T], check_order: Literal['post', 'pre'] = 'pre',
                  stop_on_success=True) -> None:
         super().__init__(source_getter, check_order, stop_on_success)
 
-    def _check(self, project: Project, user_id: int, roles: Iterable[Role]) -> bool:
+    def _check(self, project: Project, user_id: int, user_rank: int) -> bool:
         return user_id == self._source
 
 
-def source_path(attr: str, default: T = None, attr_index=1) -> ParamViewFuncGetter[T]:
+def source_path(attr: str, default: T = None, attr_index=1) -> ViewParameterExtractor[T]:
     """
     Factory for creating type-safe attribute path getters.
 
