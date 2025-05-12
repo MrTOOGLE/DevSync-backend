@@ -23,7 +23,7 @@ class ViewParameterExtractor(Protocol[T]):
 Order: TypeAlias = Literal['post', 'pre']
 
 
-class BaseParamChecker(ABC, Generic[T]):
+class PermissionChecker(ABC, Generic[T]):
 
     def __init__(self, source_getter: ViewParameterExtractor[T], check_order: Order = 'post', stop_on_success=False):
         self._source_getter = source_getter
@@ -62,21 +62,21 @@ class BaseParamChecker(ABC, Generic[T]):
         """Implement concrete validation logic in subclasses."""
 
 
-class RankChecker(BaseParamChecker[int]):
+class RankChecker(PermissionChecker[int]):
     """Validates if user's rank exceeds the source rank."""
 
     def _check(self, project: Project, user_id: int, user_rank: int) -> bool:
         return user_rank > self._source
 
 
-class NotOwnerTargetChecker(BaseParamChecker[int]):
+class NotOwnerTargetChecker(PermissionChecker[int]):
     """Validates that user is not the project owner."""
 
     def _check(self, project: Project, user_id: int, user_rank: int) -> bool:
         return project.owner_id != user_id
 
 
-class CompareUsersRankChecker(BaseParamChecker[int]):
+class CompareUsersRankChecker(PermissionChecker[int]):
     """Compares ranks between current user and source user."""
 
     def _check(self, project: Project, user_id: int, user_rank: int) -> bool:
@@ -92,7 +92,7 @@ class CompareUsersRankChecker(BaseParamChecker[int]):
         return user_rank > highest_role.rank
 
 
-class CreatorBypassChecker(BaseParamChecker[int]):
+class CreatorBypassChecker(PermissionChecker[int]):
     """
     Special checker that bypasses validation if user is the creator.
     Runs early (pre-check) and stops further checks on success.
@@ -106,12 +106,12 @@ class CreatorBypassChecker(BaseParamChecker[int]):
         return user_id == self._source
 
 
-def source_path(attr: str, default: T = None, attr_index=1) -> ViewParameterExtractor[T]:
+def source_path(attr_path: str, default: T = None, attr_index=1) -> ViewParameterExtractor[T]:
     """
     Factory for creating type-safe attribute path getters.
 
     Args:
-        attr: Dot-separated path to the attribute
+        attr_path: Dot-separated path to the attribute
         default: Default value if path resolution fails
         attr_index: Position of the target object in view args
 
@@ -123,13 +123,13 @@ def source_path(attr: str, default: T = None, attr_index=1) -> ViewParameterExtr
         current = args[attr_index]
         if hasattr(current, 'validated_data'):
             current = current.validated_data
-        for part in attr.split('.'):
+        for attr in attr_path.split('.'):
             if current is default:
                 break
             current = (
-                current.get(part, default)
+                current.get(attr, default)
                 if isinstance(current, Mapping)
-                else getattr(current, part, default)
+                else getattr(current, attr, default)
             )
 
         return current

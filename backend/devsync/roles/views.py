@@ -11,6 +11,7 @@ from projects.views.base import (
     ProjectMemberBasedReadCreateDeleteViewSet,
     ProjectMemberBasedMixin
 )
+from roles.adapter.repositories import ProjectMemberRepository
 from roles.models import Role, MemberRole
 from roles.renderers import RoleListRenderer, RolePermissionsRenderer
 from roles.serializers import (
@@ -77,6 +78,17 @@ class RoleViewSet(ProjectBasedModelViewSet):
         super().perform_destroy(instance)
         cache.invalidate_role(self.project.id, instance.id)
         cache.invalidate_project_permissions(self.project.id)
+
+    @action(methods=['get'], detail=False)
+    def test(self, *args, **kwargs):
+        print(ProjectMemberRepository().get_members(
+            self.project.id,
+        ))
+        print(ProjectMemberRepository().get_member(
+            project_id=self.project.id,
+            user_id=self.request.user.id,
+        ))
+        return
 
 
 class ProjectMemberRoleViewSet(ProjectMemberBasedReadCreateDeleteViewSet):

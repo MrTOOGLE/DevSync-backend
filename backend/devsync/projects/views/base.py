@@ -1,5 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions
+from rest_framework.generics import GenericAPIView
 from rest_framework.viewsets import GenericViewSet
 
 from api.views import ReadDeleteViewSet, ReadCreateDeleteViewSet
@@ -37,6 +38,13 @@ class ProjectBasedMixin:
         context = super().get_serializer_context()
         context[self.project_lookup] = self.kwargs.get(self.project_lookup)
         return context
+
+
+class ProjectBasedAPIView(
+    ProjectBasedMixin,
+    GenericAPIView,
+):
+    pass
 
 
 class ProjectBasedViewSet(
