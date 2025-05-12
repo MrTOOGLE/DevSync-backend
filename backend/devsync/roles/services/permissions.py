@@ -10,7 +10,7 @@ from projects.models import Project
 from projects.views.base import ProjectBasedViewSet
 from roles.models import Role, Permission
 from roles.services import cache
-from roles.services.checkers import BaseParamChecker
+from roles.services.checkers import PermissionChecker
 from roles.services.enum import PermissionsEnum
 
 P = ParamSpec("P")
@@ -19,7 +19,7 @@ R = TypeVar("R")
 
 def require_permissions(
         *permissions: PermissionsEnum | str,
-        checkers: Iterable[BaseParamChecker] = tuple(),
+        checkers: Iterable[PermissionChecker] = tuple(),
         only_owner: bool = False,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
@@ -83,7 +83,7 @@ def require_permissions(
 
 
 def _load_checkers_sources(
-        checkers: Iterable[BaseParamChecker],
+        checkers: Iterable[PermissionChecker],
         view: ProjectBasedViewSet,
         *args: Any,
         **kwargs: Any
@@ -100,7 +100,7 @@ def check_permissions(
         project: Project,
         user_id: int,
         only_owner: bool = False,
-        checkers: Iterable[BaseParamChecker] = tuple()
+        checkers: Iterable[PermissionChecker] = tuple()
 ) -> None:
     """
     Verify user permissions against project requirements.
@@ -153,7 +153,7 @@ def check_permissions(
 
 
 def _run_checkers(
-        checkers: Iterable[BaseParamChecker],
+        checkers: Iterable[PermissionChecker],
         project: Project,
         user_id: int,
         user_rank: int
