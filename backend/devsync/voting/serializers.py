@@ -17,7 +17,7 @@ class VotingOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = VotingOption
         fields = ['id', 'body', 'votes_count']
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'votes_count']
 
 
 class VotingOptionChoiceSerializer(serializers.ModelSerializer):
@@ -38,7 +38,8 @@ class VotingOptionChoiceSerializer(serializers.ModelSerializer):
 
         if VotingOptionChoice.objects.filter(
                 user=user,
-                voting_option__voting=voting
+                voting_option__voting=voting,
+                voting_option=voting_option
         ).exists():
             raise serializers.ValidationError(
                 {'user': 'This user has already voted'},
@@ -86,22 +87,22 @@ class VotingSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         data = super().validate(data)
-        if not self.instance and 'date_started' not in data:
-            data['date_started'] = timezone.now()
-        end_date = data.get('end_date')
-        date_started = data.get('date_started', timezone.now())
+
+        if 'end_date' not in data:
+            return data
+
+        end_date = data['end_date']
+
+        if self.instance:
+            date_started = self.instance.date_started
+        else:
+            date_started = timezone.now()
 
         min_end_date = timezone.now() + timedelta(hours=1)
         if end_date < min_end_date:
             raise serializers.ValidationError(
-                {'end_date': f'End date must be at least 1 hour from now'},
+                {'end_date': 'End date must be at least 1 hour from now'},
                 code='invalid_end_date'
-            )
-
-        if date_started > end_date:
-            raise serializers.ValidationError(
-                {'end_date': 'End date cannot be earlier than start date'},
-                code='invalid_date_range'
             )
 
         return data
