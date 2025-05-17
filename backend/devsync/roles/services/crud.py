@@ -1,6 +1,5 @@
 from typing import Mapping, cast, Iterable
 
-from django.db import transaction
 from django.db.models import QuerySet, Prefetch
 from django.shortcuts import get_object_or_404
 
@@ -41,7 +40,6 @@ def get_role_permissions(role: Role) -> list[RolePermission]:
     return result_permissions
 
 
-@transaction.atomic
 def update_role_permissions(role: Role, permission_updates: Mapping[str, bool | None]) -> Iterable[RolePermission]:
     permissions_to_update = _prepare_permissions_update(role, permission_updates)
     _bulk_update_permission_roles(permissions_to_update)

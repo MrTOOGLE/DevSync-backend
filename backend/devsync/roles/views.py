@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
@@ -134,6 +135,7 @@ class RolePermissionsViewSet(
 
     @action(methods=['patch'], detail=False)
     @require_permissions(PermissionsEnum.ROLE_MANAGE)
+    @transaction.atomic
     def batch(self, request, *args, **kwargs):
         role = self.get_object()
         serializer = PermissionsSerializer(data=request.data)
