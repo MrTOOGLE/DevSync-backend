@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0008_createsuperuser'),
+        ('users', '0007_user_city'),
     ]
 
     operations = [

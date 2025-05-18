@@ -19,7 +19,7 @@ def create_superuser(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('users', '0007_user_city'),
+        ('users', '0010_user_is_online_user_last_seen'),
     ]
 
     operations = [
