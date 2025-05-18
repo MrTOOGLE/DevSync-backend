@@ -111,3 +111,5 @@ backend/nginx/static
 .idea/
 backend/devsync/logs/*.log
 backend/devsync/static
+backend/init/
+backend/pgbouncer/userlist.txt

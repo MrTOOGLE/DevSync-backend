@@ -7,9 +7,28 @@ services:
     image: postgres:16.8
     container_name: devsync-postgres
     env_file:
-      - backend/devsync/.env
+      - .env
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ./backend/init/setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    networks:
+      - devsync-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+
+  pgbouncer:
+    image: bitnami/pgbouncer:latest
+    container_name: devsync-pgbouncer
+    env_file:
+      - .env
+    volumes:
+      - './backend/pgbouncer/:/bitnami/pgbouncer/conf/'
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - devsync-network
 
@@ -31,12 +50,13 @@ services:
       - static_volume:/backend/static
       - media_volume:/backend/media
     env_file:
-      - backend/devsync/.env
+      - .env
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     command: >
       bash -c "python manage.py collectstatic --noinput && 
-      python manage.py migrate users && 
+      python manage.py migrate && 
       gunicorn -b 0.0.0.0:8000 config.asgi:application -k uvicorn.workers.UvicornWorker"
     networks:
       - devsync-network
@@ -48,7 +68,7 @@ services:
       - static_volume:/backend/static
       - media_volume:/backend/media
     env_file:
-      - backend/devsync/.env
+      - .env
     depends_on:
       - redis
       - backend
@@ -63,7 +83,7 @@ services:
       - static_volume:/backend/static
       - media_volume:/backend/media
     env_file:
-      - backend/devsync/.env
+      - .env
     depends_on:
       - redis
       - backend
