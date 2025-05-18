@@ -50,6 +50,7 @@ MIDDLEWARE = [
 
     'corsheaders.middleware.CorsMiddleware',
     'config.middleware.RequestLoggingMiddleware',
+    'users.middleware.UserActivityMiddleware'
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -321,7 +322,7 @@ REQUEST_LOGGING = {
 # django channels
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'BACKEND': 'config.utils.redis_channel.ExtendedRedisChannelLayer',
         'CONFIG': {
             'hosts': [(REDIS_HOST, REDIS_PORT)],
         },

@@ -1,6 +1,7 @@
 from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 from config.utils.fields import WEBPField
 
@@ -28,6 +29,7 @@ class User(AbstractUser):
     is_email_verified = models.BooleanField(default=False)
     avatar = WEBPField(upload_to="users/%Y/%m/%d/", blank=True, null=True, verbose_name="Аватар")
     city = models.CharField(max_length=50, blank=False, default="Москва")
+    last_seen = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["last_name", "first_name", "city"]

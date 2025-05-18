@@ -1,8 +1,13 @@
+import asyncio
 import json
 import logging
 from typing import Any, Optional, Awaitable, Callable, Self
-from channels.generic.websocket import AsyncWebsocketConsumer
+
 from channels.db import database_sync_to_async
+from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.layers import get_channel_layer
+
+from users.services import update_user_status
 
 logger: logging.Logger = logging.getLogger('django')
 
@@ -12,12 +17,12 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         'mark_as_read': lambda self, data: self._handle_mark_as_read(data),
         'mark_all_read': lambda self, data: self._handle_mark_all_read(data),
         'mark_as_hidden': lambda self, data: self._handle_mark_as_hidden(data),
-        'mark_all_hidden': lambda self, data: self._handle_mark_all_hidden(data),
+        'mark_all_hidden': lambda self, data: self._handle_mark_all_hidden(data)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.user: Optional['User'] = None
+        self.user = None
         self.group_name: Optional[str] = None
         self.connection_id: Optional[str] = None
 
@@ -33,11 +38,16 @@ class NotificationConsumer(AsyncWebsocketConsumer):
         )
         await self._setup_user_group()
         await self.accept()
+        await self.update_user_status(is_online=True)
 
     async def disconnect(self, close_code: int) -> None:
         if self.group_name:
             await self._remove_from_group()
 
+        await asyncio.sleep(15)
+        if await self.check_user_connection_async(self.user.id):
+            return
+        await self.update_user_status(is_online=False)
         logger.info(
             f"User {self.user.id} disconnected (conn_id: {self.connection_id}, "
             f"code: {close_code})"
@@ -61,6 +71,13 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             )
             await self._send_error("Internal server error")
 
+    @classmethod
+    async def check_user_connection_async(cls, user_id: int) -> bool:
+        channel_layer = get_channel_layer()
+        group_name = f'user_{user_id}'
+        channels = await channel_layer.get_group_channels(group_name)
+        return len(channels) > 0
+
     async def send_notification(self, event: dict[str, Any]) -> None:
         try:
             await self._send_message(
@@ -77,6 +94,10 @@ class NotificationConsumer(AsyncWebsocketConsumer):
                 f"(conn_id: {self.connection_id})",
                 exc_info=True
             )
+
+    @database_sync_to_async
+    def update_user_status(self, is_online: bool) -> None:
+        update_user_status(self.user, is_online)
 
     @database_sync_to_async
     def read_notification(self, notification_id: int) -> None:

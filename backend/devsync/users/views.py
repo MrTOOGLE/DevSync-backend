@@ -14,6 +14,7 @@ from .models import User
 from .paginators import UsersPagination
 from .permissions import IsAdminOrOwnerOrReadOnly
 from .serializers import ConfirmEmailSerializer, SendVerificationCodeSerializer, UserSerializer
+from .services import get_user_status
 from .throttling import VerificationCodeSendThrottle
 
 logger = logging.getLogger('__name__')
@@ -28,7 +29,6 @@ class SendVerificationCodeAPIView(APIView):
         serializer.save()
 
         return Response({"status": "success"}, status=status.HTTP_201_CREATED)
-
 
 
 class ConfirmEmailAPIView(APIView):
@@ -80,3 +80,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return self.partial_update(request, *args, **kwargs)
         elif request.method == 'DELETE':
             return self.destroy(request, *args, **kwargs)
+
+    @action(methods=['get'], detail=True)
+    def status(self, request, *args, **kwargs):
+        user = self.get_object()
+        return Response(get_user_status(user), status=status.HTTP_200_OK)
