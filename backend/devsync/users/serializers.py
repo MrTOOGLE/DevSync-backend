@@ -40,8 +40,7 @@ class SendVerificationCodeSerializer(serializers.Serializer):
         try:
             user = User.objects.get(email=email)
             send_verification_code_email.delay(
-                user.first_name,
-                user.last_name,
+                user.get_full_name(),
                 cached_code,
                 user.email,
             )

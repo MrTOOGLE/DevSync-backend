@@ -49,6 +49,14 @@ class User(AbstractUser):
     def username(self):
         return self.get_username()
 
+    def get_full_name(self):
+        name_parts = [part for part in (self.first_name, self.last_name) if part]
+
+        if name_parts:
+            return " ".join(name_parts)
+
+        return self.email.split("@")[0]
+
     def verify_email(self):
         self.is_email_verified = True
         self.save()
