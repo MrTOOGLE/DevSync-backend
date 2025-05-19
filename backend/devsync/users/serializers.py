@@ -14,12 +14,12 @@ def validate_email(value):
         user = User.objects.get(email=value)
         if user.is_email_verified:
             raise ValidationError(
-                {"email" : "Данный email уже подтвержден."},
+                "Данный email уже подтвержден.",
                 code="email_already_verified"
             )
     except User.DoesNotExist:
         raise ValidationError(
-            {"email": "Нет пользователя с таким email."},
+            "Нет пользователя с таким email.",
             code="no_user"
         )
     return value
@@ -63,13 +63,13 @@ class ConfirmEmailSerializer(serializers.Serializer):
 
         if not cached_code:
             raise ValidationError(
-                {"code": "Недействительный код верификации."},
+                "Недействительный код верификации.",
                 code="invalid_code"
             )
 
         if cached_code != value:
             raise ValidationError(
-                {"code": "Недействительный код верификации."},
+                "Недействительный код верификации.",
                 code="invalid_code"
             )
 

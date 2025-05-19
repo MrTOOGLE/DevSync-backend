@@ -30,7 +30,7 @@ class IntervalThrottle(BaseThrottle):
     @staticmethod
     def _get_cache_key(request):
         user = request.user
-        if not user.is_authenticated:
+        if user.is_authenticated:
             return f"user:{user.email}:last_request_time"
         email = request.POST.get("email")
         if email:
