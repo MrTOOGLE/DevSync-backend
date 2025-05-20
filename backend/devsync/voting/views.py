@@ -4,6 +4,8 @@ from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 
 from projects.views import ProjectBasedModelViewSet
+from roles.services.enum import PermissionsEnum
+from roles.services.permissions import require_permissions
 from voting.filters import VotingFilter
 from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
 from voting.paginators import PublicVotingPagination
@@ -34,6 +36,9 @@ class VotingViewSet(ProjectBasedModelViewSet):
         project = self.project
         return Voting.objects.filter(project=project).select_related('project', 'creator')
 
+    # @require_permissions(
+    #     PermissionsEnum.VOTING_CREATE
+    # )
     def perform_create(self, serializer):
         project = self.project
         serializer.save(creator=self.request.user, project=project)
