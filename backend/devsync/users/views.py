@@ -48,7 +48,7 @@ class UserViewSet(viewsets.ModelViewSet):
     filterset_class = UserFilter
     search_fields = ['id', 'first_name', 'last_name', 'email', 'city']
     serializer_class = UserSerializer
-    permission_classes = (IsAdminOrOwnerOrReadOnly,)
+    permission_classes = (IsAuthenticated,)
 
     serializer_classes = {
         'create': UserCreatePasswordRetypeSerializer
