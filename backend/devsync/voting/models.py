@@ -17,10 +17,11 @@ class Voting(models.Model):
     title = models.CharField(max_length=150)
     body = models.CharField(max_length=2000)
     date_started = models.DateTimeField(auto_now_add=True)
-    end_date = models.DateTimeField(null=True, blank=True)
+    end_date = models.DateTimeField()
     creator = models.ForeignKey(User, related_name='created_votings', on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
     project = models.ForeignKey(Project, related_name='votings', on_delete=models.CASCADE)
+    is_anonymous = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Voting: {self.title} (Status: {self.status})"

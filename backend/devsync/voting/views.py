@@ -4,13 +4,13 @@ from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 
 from projects.views import ProjectBasedModelViewSet
+from roles.services.checkers import CreatorBypassChecker
 from roles.services.enum import PermissionsEnum
 from roles.services.permissions import require_permissions
 from voting.filters import VotingFilter
 from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
 from voting.paginators import PublicVotingPagination
-from voting.permissions import IsVotingCreator, IsCommentOwner
-from voting.renderers import VotingListRenderer, VotingOptionListRenderer, VotingOptionChoiceListRenderer, \
+from voting.renderers import VotingListRenderer, VotingOptionChoiceListRenderer, \
     VotingCommentListRenderer
 from voting.serializers import VotingSerializer, VotingCommentSerializer, VotingOptionChoiceSerializer, \
     VotingOptionSerializer
@@ -27,21 +27,20 @@ class VotingViewSet(ProjectBasedModelViewSet):
 
     def get_permissions(self):
         permissions = super().get_permissions()
-
-        if self.action in ['create', 'destroy', 'update']:
-            permissions.append(IsVotingCreator())
         return permissions
 
     def get_queryset(self):
         project = self.project
-        return Voting.objects.filter(project=project).select_related('project', 'creator')
+        return Voting.objects.filter(project=project).select_related('project', 'creator').annotate(options_count=Count('options'))
 
-    # @require_permissions(
-    #     PermissionsEnum.VOTING_CREATE
-    # )
+    @require_permissions(PermissionsEnum.VOTING_CREATE)
     def perform_create(self, serializer):
         project = self.project
         serializer.save(creator=self.request.user, project=project)
+
+    @require_permissions(CreatorBypassChecker)
+    def perform_destroy(self, instance):
+        return super().perform_destroy(instance)
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -52,9 +51,6 @@ class VotingViewSet(ProjectBasedModelViewSet):
 class VotingBasedViewSet(ProjectBasedModelViewSet):
     def get_permissions(self):
         permissions = super().get_permissions()
-
-        if self.action in ['create', 'destroy', 'update']:
-            permissions.append(IsVotingCreator())
         return permissions
 
     def get_voting(self):
@@ -75,16 +71,10 @@ class VotingBasedViewSet(ProjectBasedModelViewSet):
 class VotingOptionViewSet(VotingBasedViewSet):
     queryset = VotingOption.objects.annotate(votes_count=Count('choices'))
     serializer_class = VotingOptionSerializer
-    renderer_classes = [VotingOptionListRenderer]
-    http_method_names = ['get', 'post', 'delete']
+    http_method_names = ['get']
 
     def get_queryset(self):
-        voting = self.get_voting()
-        return VotingOption.objects.filter(voting=voting).select_related("voting")
-
-    def perform_create(self, serializer):
-        voting = Voting.objects.get(id=self.kwargs['voting_pk'])
-        serializer.save(voting=voting)
+        return super().get_queryset().filter(voting=self.get_voting())
 
 
 class VotingOptionChoiceViewSet(VotingBasedViewSet):
@@ -94,17 +84,26 @@ class VotingOptionChoiceViewSet(VotingBasedViewSet):
 
     def get_permissions(self):
         permissions = [permission() for permission in self.permission_classes]
-
-        if self.action in ['destroy']:
-            permissions.append(IsVotingCreator())
         return permissions
 
     def get_queryset(self):
         voting = self.get_voting()
-        return VotingOptionChoice.objects.filter(voting_option__voting=voting).select_related("voting_option", "user")
+        queryset = VotingOptionChoice.objects.filter(voting_option__voting=voting)
 
+        if voting.is_anonymous:
+            queryset = queryset.select_related('voting_option').defer('user')
+        else:
+            queryset = queryset.select_related("voting_option", "user")
+
+        return queryset
+
+    @require_permissions(PermissionsEnum.VOTING_VOTE)
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    @require_permissions(CreatorBypassChecker)
+    def perform_destroy(self, instance):
+        return super().perform_destroy(instance)
 
 
 class VotingCommentViewSet(VotingBasedViewSet):
@@ -114,15 +113,21 @@ class VotingCommentViewSet(VotingBasedViewSet):
     http_method_names = ['get', 'post', 'delete', 'patch']
 
     def get_permissions(self):
-        permissions = [permission() for permission in self.permission_classes]
-
-        if self.action in ['destroy', 'partial_update']:
-            permissions.append(IsCommentOwner())
+        permissions = super().get_permissions()
         return permissions
 
     def get_queryset(self):
         voting = self.get_voting()
-        return VotingComment.objects.filter(voting=voting).select_related("sender")
+        return VotingComment.objects.filter(voting=voting).select_related("sender").prefetch_related('replies')
 
+    @require_permissions(PermissionsEnum.COMMENT_CREATE)
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user, voting=self.get_voting())
+
+    @require_permissions(PermissionsEnum.COMMENT_MANAGE)
+    def perform_update(self, serializer):
+        serializer.save(update_fields=['body'])
+
+    @require_permissions(CreatorBypassChecker)
+    def perform_destroy(self, instance):
+        return super().perform_destroy(instance)

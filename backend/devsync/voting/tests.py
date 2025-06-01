@@ -5,7 +5,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from unittest.mock import patch
 
-from projects.models import Project
+from projects.models import Project, ProjectMember
 from users.models import User
 from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
 
@@ -31,7 +31,11 @@ class VotingTests(APITestCase):
         self.voting_data = {
             'title': 'Test Voting',
             'body': 'Test voting description',
-            'end_date': (timezone.now() + timedelta(days=1)).isoformat()
+            'end_date': (timezone.now() + timedelta(days=1)).isoformat(),
+            'options': [
+                {'body': 'Option 1'},
+                {'body': 'Option 2'}
+            ]
         }
         self.voting = Voting.objects.create(
             title='Existing Voting',
@@ -111,13 +115,6 @@ class VotingOptionTests(APITestCase):
             'voting_pk': self.voting.id
         })
 
-    def test_create_option(self):
-        self.client.force_authenticate(user=self.user)
-        response = self.client.post(self.url, self.option_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(VotingOption.objects.count(), 1)
-        self.assertEqual(response.data['body'], 'Test Option')
-
     def test_list_options(self):
         VotingOption.objects.create(
             voting=self.voting,
@@ -128,21 +125,6 @@ class VotingOptionTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['body'], 'Option 1')
-
-    def test_delete_option(self):
-        option = VotingOption.objects.create(
-            voting=self.voting,
-            body='Test Option'
-        )
-        self.client.force_authenticate(user=self.user)
-        url = reverse('voting-option-detail', kwargs={
-            'project_pk': self.project.id,
-            'voting_pk': self.voting.id,
-            'pk': option.id
-        })
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(VotingOption.objects.count(), 0)
 
 
 class VotingOptionChoiceTests(APITestCase):
@@ -224,6 +206,9 @@ class VotingCommentTests(APITestCase):
             title='Test Project',
             owner=self.user
         )
+
+        ProjectMember.objects.create(project=self.project, user=self.other_user)
+
         self.voting = Voting.objects.create(
             title='Test Voting',
             body='Test description',
@@ -292,3 +277,12 @@ class VotingCommentTests(APITestCase):
         response = self.client.delete(url)
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(VotingComment.objects.count(), 0)
+
+    def test_create_comment_non_member(self):
+        non_member = User.objects.create_user(
+            email='nonmember@test.com',
+            password='testpass'
+        )
+        self.client.force_authenticate(user=non_member)
+        response = self.client.post(self.url, self.comment_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
