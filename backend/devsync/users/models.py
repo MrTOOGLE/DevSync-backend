@@ -62,4 +62,4 @@ class User(AbstractUser):
         self.save()
 
     def __str__(self):
-        return f"User <{self.last_name} {self.first_name}> (id: {self.pk})"
+        return f"User <{self.get_full_name()}> (id: {self.pk})"

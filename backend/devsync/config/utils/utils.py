@@ -117,3 +117,7 @@ def is_server_command():
     return any(
         cmd in sys.argv for cmd in ['runserver', 'gunicorn', 'uvicorn']
     )
+
+
+def parse_bool(value: str) -> bool:
+    return value.strip().lower() in ['true', 'yes', '1']

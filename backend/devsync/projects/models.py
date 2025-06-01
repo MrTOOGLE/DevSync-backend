@@ -123,6 +123,19 @@ class MemberDepartment(models.Model):
         return f'{self.user} - {self.department}'
 
 
+class Task(models.Model):
+    project = models.ForeignKey(Project, related_name='tasks', on_delete=models.CASCADE)
+    title = models.CharField(max_length=256)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    department = models.ForeignKey(Department, related_name='tasks', on_delete=models.CASCADE, null=True, blank=True)
+    assignees = models.ManyToManyField(User, related_name='assigned_tasks', blank=True)
+    is_completed = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'Task {self.title[:30]} ({self.project.title})'
+
+
 @receiver(post_save, sender=Project)
 def add_owner_as_member(sender, instance, created, **kwargs):
     if created:

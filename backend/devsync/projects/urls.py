@@ -15,6 +15,7 @@ from roles.views import (
     ProjectMemberRoleViewSet,
     RolePermissionsViewSet, MemberPermissionsViewSet
 )
+from .views.task import TaskViewSet
 
 router = DefaultRouter()
 router.register(r'projects', ProjectViewSet, basename='project')
@@ -25,6 +26,7 @@ projects_router.register(r'members', ProjectMemberViewSet, basename='project-mem
 projects_router.register(r'departments', DepartmentViewSet, basename='project-departments')
 projects_router.register(r'invitations', ProjectInvitationViewSet, basename='project-invitations')
 projects_router.register(r'roles', RoleViewSet, basename='project-roles')
+projects_router.register(r'tasks', TaskViewSet, basename='project-tasks')
 
 members_router = routers.NestedSimpleRouter(projects_router, r'members', lookup='member')
 members_router.register(r'departments', ProjectMemberDepartmentViewSet, basename='project-member-departments')

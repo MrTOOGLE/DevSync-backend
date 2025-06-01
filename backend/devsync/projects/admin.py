@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, ProjectMember, Department, MemberDepartment, ProjectInvitation
+from .models import Project, ProjectMember, Department, MemberDepartment, ProjectInvitation, Task
 
 
 @admin.register(Project)
@@ -38,3 +38,8 @@ class DepartmentMemberAdmin(admin.ModelAdmin):
     search_fields = ["department__title", "user__email"]
 
     save_on_top = True
+
+
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ("title", "start_date", "end_date", "project")
