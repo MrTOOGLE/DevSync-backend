@@ -4,7 +4,7 @@ from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 
 from projects.views import ProjectBasedModelViewSet
-from roles.services.checkers import CreatorBypassChecker
+from roles.services.checkers import CreatorBypassChecker, source_path
 from roles.services.enum import PermissionsEnum
 from roles.services.permissions import require_permissions
 from voting.filters import VotingFilter
@@ -23,7 +23,7 @@ class VotingViewSet(ProjectBasedModelViewSet):
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = VotingFilter
     ordering_fields = ('title', 'date_started', 'date_ended')
-    http_method_names = ['get', 'post', 'delete']
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
     def get_permissions(self):
         permissions = super().get_permissions()
@@ -31,14 +31,18 @@ class VotingViewSet(ProjectBasedModelViewSet):
 
     def get_queryset(self):
         project = self.project
-        return Voting.objects.filter(project=project).select_related('project', 'creator').annotate(options_count=Count('options'))
+        return Voting.objects.filter(project=project).select_related('project', 'creator').annotate(
+            options_count=Count('options'))
 
-    @require_permissions(PermissionsEnum.VOTING_CREATE)
+    @require_permissions(PermissionsEnum.VOTING_MANAGE, PermissionsEnum.VOTING_CREATE)
     def perform_create(self, serializer):
         project = self.project
         serializer.save(creator=self.request.user, project=project)
 
-    @require_permissions(CreatorBypassChecker)
+    @require_permissions(
+        PermissionsEnum.VOTING_MANAGE,
+        checkers=[CreatorBypassChecker(source_path('creator.id'))]
+    )
     def perform_destroy(self, instance):
         return super().perform_destroy(instance)
 
@@ -80,7 +84,7 @@ class VotingOptionViewSet(VotingBasedViewSet):
 class VotingOptionChoiceViewSet(VotingBasedViewSet):
     serializer_class = VotingOptionChoiceSerializer
     renderer_classes = [VotingOptionChoiceListRenderer]
-    http_method_names = ['get', 'post', 'delete']
+    http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
     def get_permissions(self):
         permissions = [permission() for permission in self.permission_classes]
@@ -101,7 +105,9 @@ class VotingOptionChoiceViewSet(VotingBasedViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    @require_permissions(CreatorBypassChecker)
+    @require_permissions(
+        checkers=[CreatorBypassChecker(source_path('user.id'))]
+    )
     def perform_destroy(self, instance):
         return super().perform_destroy(instance)
 
@@ -110,7 +116,7 @@ class VotingCommentViewSet(VotingBasedViewSet):
     queryset = VotingComment.objects.all()
     serializer_class = VotingCommentSerializer
     renderer_classes = [VotingCommentListRenderer]
-    http_method_names = ['get', 'post', 'delete', 'patch']
+    http_method_names = ['get', 'post', 'delete', 'patch', 'head', 'options']
 
     def get_permissions(self):
         permissions = super().get_permissions()
@@ -118,16 +124,28 @@ class VotingCommentViewSet(VotingBasedViewSet):
 
     def get_queryset(self):
         voting = self.get_voting()
-        return VotingComment.objects.filter(voting=voting).select_related("sender").prefetch_related('replies')
+        return VotingComment.objects.filter(
+            voting=voting
+        ).select_related(
+            "sender"
+        ).prefetch_related(
+            'replies'
+        )
 
     @require_permissions(PermissionsEnum.COMMENT_CREATE)
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user, voting=self.get_voting())
 
-    @require_permissions(PermissionsEnum.COMMENT_MANAGE)
+    @require_permissions(
+        PermissionsEnum.COMMENT_MANAGE,
+        checkers=[CreatorBypassChecker(source_path('sender.id'))]
+    )
     def perform_update(self, serializer):
         serializer.save(update_fields=['body'])
 
-    @require_permissions(CreatorBypassChecker)
+    @require_permissions(
+        PermissionsEnum.COMMENT_MANAGE,
+        checkers=[CreatorBypassChecker(source_path('sender.id'))]
+    )
     def perform_destroy(self, instance):
         return super().perform_destroy(instance)
