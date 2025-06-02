@@ -19,7 +19,7 @@ class VotingListRenderer(ListRenderer):
 
 
 class VotingOptionListRenderer(ListRenderer):
-    wrapper_key = 'options'
+     wrapper_key = 'options'
 
 
 class VotingOptionChoiceListRenderer(ListRenderer):

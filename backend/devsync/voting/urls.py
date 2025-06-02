@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework_nested import routers
-from .views import VotingViewSet, VotingOptionViewSet, VotingOptionChoiceViewSet, VotingCommentViewSet
+from .views import VotingViewSet, VotingOptionChoiceViewSet, VotingCommentViewSet, VotingOptionViewSet
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
