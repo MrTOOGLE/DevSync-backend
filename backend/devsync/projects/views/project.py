@@ -17,7 +17,6 @@ from projects.serializers import (
     ProjectOwnerSerializer
 )
 from projects.views import ProjectBasedModelViewSet
-from roles.services import cache
 from roles.services.enum import PermissionsEnum
 from roles.services.permissions import check_permissions, require_permissions
 from users.serializers import UserSerializer
