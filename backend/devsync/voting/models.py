@@ -10,9 +10,8 @@ User = get_user_model()
 class Voting(models.Model):
     class Status(models.TextChoices):
         NEW = 'new','Новое'
-        UNDER_REVIEW = 'under_review', 'На рассмотрении'
-        ACCEPTED = 'accepted', 'Принято'
-        REJECTED = 'rejected', 'Отклонено'
+        UNDER_REVIEW = 'pending', 'На рассмотрении'
+        ENDED = 'ended', 'Закончено'
 
     title = models.CharField(max_length=150)
     body = models.CharField(max_length=2000)
@@ -22,9 +21,23 @@ class Voting(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
     project = models.ForeignKey(Project, related_name='votings', on_delete=models.CASCADE)
     is_anonymous = models.BooleanField(default=False)
+    allow_multiple = models.BooleanField(default=False)
 
     def __str__(self):
         return f"Voting: {self.title} (Status: {self.status})"
+
+
+class VotingTag(models.Model):
+    voting = models.ForeignKey(Voting, related_name='tags', on_delete=models.CASCADE)
+    tag = models.CharField(max_length=150)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['voting', 'tag'], name='unique_voting_tag'),
+        ]
+
+    def __str__(self):
+        return f"VotingTag: {self.tag}"
 
 
 class VotingOption(models.Model):
