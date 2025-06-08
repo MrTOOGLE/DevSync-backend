@@ -24,7 +24,7 @@ class Voting(models.Model):
     allow_multiple = models.BooleanField(default=False)
 
     class Meta:
-        constraints = [
+        indexes = [
             models.Index(fields=['project']),
             models.Index(fields=['title']),
             models.Index(fields=['status']),
@@ -55,7 +55,7 @@ class VotingOption(models.Model):
     body = models.CharField(max_length=250)
 
     class Meta:
-        constraints = [
+        indexes = [
             models.Index(fields=['voting']),
         ]
 
@@ -84,7 +84,7 @@ class VotingComment(models.Model):
     parent_comment = models.ForeignKey('self', related_name='replies', on_delete=models.CASCADE, null=True, blank=True)
 
     class Meta:
-        constraints = [
+        indexes = [
             models.Index(fields=['voting']),
             models.Index(fields=['date_sent']),
         ]

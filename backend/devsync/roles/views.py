@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
@@ -78,6 +79,17 @@ class RoleViewSet(ProjectBasedModelViewSet):
         super().perform_destroy(instance)
         cache.invalidate_role(self.project.id, instance.id)
         cache.invalidate_project_permissions(self.project.id)
+
+    @action(methods=['patch'], detail=False)
+    @transaction.atomic
+    def batch(self, request, *args, **kwargs):
+        roles = request.data.get('roles', [])
+        for role in roles:
+            self.perform_update(RoleSerializer(role))
+        return JsonResponse(
+            data=RoleSerializer(roles, many=True).data,
+            status=status.HTTP_200_OK
+        )
 
 
 class ProjectMemberRoleViewSet(ProjectMemberBasedReadCreateDeleteViewSet):

@@ -23,6 +23,9 @@ class Role(models.Model):
             models.Index(fields=['project']),
             models.Index(fields=['project', 'is_everyone']),
         ]
+        constraints = [
+            models.UniqueConstraint(fields=['project', 'rank'], name='unique_role'),
+        ]
 
     def __str__(self):
         return f'Role {self.name} (id: {self.id})'
