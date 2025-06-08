@@ -1,20 +1,22 @@
 from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
+from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
+from rest_framework.response import Response
 
 from projects.views import ProjectBasedModelViewSet
 from roles.services.checkers import CreatorBypassChecker, source_path
 from roles.services.enum import PermissionsEnum
 from roles.services.permissions import require_permissions
 from voting.filters import VotingFilter
-from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
+from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment, VotingTag
 from voting.paginators import PublicVotingPagination
 from voting.renderers import VotingListRenderer, VotingOptionChoiceListRenderer, \
     VotingCommentListRenderer
 from voting.serializers import VotingSerializer, VotingCommentSerializer, VotingOptionChoiceSerializer, \
-    VotingOptionSerializer
+    VotingOptionSerializer, VotingTagSerializer
 
 
 class VotingViewSet(ProjectBasedModelViewSet):
@@ -24,8 +26,15 @@ class VotingViewSet(ProjectBasedModelViewSet):
     filter_backends = [DjangoFilterBackend, OrderingFilter, filters.SearchFilter]
     filterset_class = VotingFilter
     ordering_fields = ('title', 'date_started', 'date_ended')
-    search_fields = ('title', 'body')
+    search_fields = ('title', 'body', 'tags')
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    @action(detail=False, methods=['get'], url_path='tags')
+    def tags(self, request, project_pk=None):
+        tags = VotingTag.objects.filter(
+            voting__project__id=project_pk
+        ).values_list('tag', flat=True).distinct().order_by('tag')
+        return Response(tags)
 
     def get_permissions(self):
         permissions = super().get_permissions()

@@ -5,11 +5,18 @@ from django.utils import timezone
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
+from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment, VotingTag
 
 from users.serializers import UserSerializer
 
 User = get_user_model()
+
+
+class VotingTagSerializer(serializers.Serializer):
+    tag = serializers.CharField()
+
+    class Meta:
+        fields = ['tag']
 
 
 class VotingOptionSerializer(serializers.ModelSerializer):
@@ -38,7 +45,13 @@ class VotingOptionChoiceSerializer(serializers.ModelSerializer):
 
         voting = voting_option.voting
 
-        if not voting.allows_multiple:
+        if timezone.now() > voting.end_date:
+            raise serializers.ValidationError(
+                {'end_date': 'Voting has already ended.'},
+                code='voting_ended'
+            )
+
+        if not voting.allow_multiple:
             if VotingOptionChoice.objects.filter(
                     user=user,
                     voting_option__voting=voting
@@ -96,13 +109,15 @@ class VotingSerializer(serializers.ModelSerializer):
     creator = UserSerializer(read_only=True)
     options = VotingOptionSerializer(many=True, required=True)
     is_anonymous = serializers.BooleanField(default=False)
-    allows_multiple = serializers.BooleanField(default=False)
+    allow_multiple = serializers.BooleanField(default=False)
+    tags = VotingTagSerializer(many=True, required=False)
 
     class Meta:
         model = Voting
         fields = [
             'id', 'title', 'body', 'date_started', 'end_date',
-            'creator', 'status', 'options', 'is_anonymous', 'allows_multiple'
+            'creator', 'status', 'options', 'is_anonymous', 'allow_multiple',
+            'tags'
         ]
         read_only_fields = ['id', 'creator', 'date_started', 'status']
 
@@ -124,6 +139,15 @@ class VotingSerializer(serializers.ModelSerializer):
                     {'options': 'Voting options must be unique'},
                     code='duplicate_options'
                 )
+        if 'tags' in data:
+            tags_data = data['tags']
+            tags = [tag['tag'].strip().lower() for tag in tags_data]
+
+            if len(tags) != len(set(tags)):
+                raise serializers.ValidationError(
+                    {'tags': 'Tags must be unique within one voting'},
+                    code='duplicate_tags'
+                )
 
         if 'end_date' not in data:
             raise serializers.ValidationError(
@@ -142,10 +166,17 @@ class VotingSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         options_data = validated_data.pop('options', [])
+        tags_data = validated_data.pop('tags', [])
         voting = Voting.objects.create(**validated_data)
 
         for option_data in options_data:
             VotingOption.objects.create(voting=voting, **option_data)
+
+        for tag_data in tags_data:
+            VotingTag.objects.create(
+                voting=voting,
+                tag=tag_data['tag'].strip().lower()
+            )
 
         return voting
 
@@ -158,6 +189,11 @@ class VotingSerializer(serializers.ModelSerializer):
 
         representation['options'] = VotingOptionSerializer(
             options,
+            many=True
+        ).data
+
+        representation['tags'] = VotingTagSerializer(
+            instance.tags.all(),
             many=True
         ).data
 
