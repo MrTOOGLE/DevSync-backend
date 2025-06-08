@@ -7,7 +7,7 @@ class VotingFilter(django_filters.FilterSet):
 
     class Meta:
         model = Voting
-        fields = ['title', 'date_started', 'tag']
+        fields = ['title', 'date_started', 'tag', 'status']
 
     def filter_by_tag(self, queryset, name, value):
         return queryset.filter(tags__tag=value)

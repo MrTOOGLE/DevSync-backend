@@ -1,7 +1,9 @@
 from django.db.models import Count
+from django.utils.timezone import now
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
@@ -25,7 +27,7 @@ class VotingViewSet(ProjectBasedModelViewSet):
     renderer_classes = [VotingListRenderer]
     filter_backends = [DjangoFilterBackend, OrderingFilter, filters.SearchFilter]
     filterset_class = VotingFilter
-    ordering_fields = ('title', 'date_started', 'date_ended')
+    ordering_fields = ('title', 'date_started', 'end_date')
     search_fields = ('title', 'body', 'tags')
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
@@ -42,8 +44,12 @@ class VotingViewSet(ProjectBasedModelViewSet):
 
     def get_queryset(self):
         project = self.project
-        return Voting.objects.filter(project=project).select_related('project', 'creator').annotate(
-            options_count=Count('options'))
+        queryset = Voting.objects.filter(project=project).select_related('project', 'creator').annotate(
+            options_count=Count('options')
+        )
+
+        queryset.filter(end_date__lt=now(), status='ACTIVE').update(status='ENDED')
+        return queryset
 
     @require_permissions(PermissionsEnum.VOTING_MANAGE, PermissionsEnum.VOTING_CREATE)
     def perform_create(self, serializer):
@@ -114,6 +120,15 @@ class VotingOptionChoiceViewSet(VotingBasedViewSet):
 
     @require_permissions(PermissionsEnum.VOTING_VOTE)
     def perform_create(self, serializer):
+        voting = self.get_voting()
+
+        if voting.status != 'ACTIVE':
+            raise ValidationError("Voting is not active")
+        if voting.end_date and voting.end_date < now():
+            raise ValidationError("Voting is ended")
+        if voting.date_started and voting.date_started > now():
+            raise ValidationError("Voting has not started yet")
+
         serializer.save(user=self.request.user)
 
     @require_permissions(
