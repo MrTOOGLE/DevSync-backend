@@ -18,7 +18,7 @@ class RoleSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'name': {'trim_whitespace': True}
         }
-        read_only_fields = ['id', 'is_everyone', 'date_created']
+        read_only_fields = ['is_everyone', 'date_created']
 
     def update(self, instance, validated_data: dict):
         if instance.is_everyone:

@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import action
@@ -83,11 +82,33 @@ class RoleViewSet(ProjectBasedModelViewSet):
     @action(methods=['patch'], detail=False)
     @transaction.atomic
     def batch(self, request, *args, **kwargs):
-        roles = request.data.get('roles', [])
-        for role in roles:
-            self.perform_update(RoleSerializer(role))
-        return JsonResponse(
-            data=RoleSerializer(roles, many=True).data,
+        roles_data = request.data.get('roles', [])
+
+        role_ids = [role.get('id') for role in roles_data if role.get('id')]
+        roles = {role.id: role for role in self.get_queryset() if role.id in role_ids}
+
+        instances = []
+        for role_data in roles_data:
+            role_id = role_data.get('id')
+            if not role_id:
+                continue
+
+            instance = roles.get(role_id)
+            if not instance:
+                continue
+
+            instance_serializer = self.get_serializer(
+                instance,
+                data=role_data,
+                partial=True
+            )
+            instance_serializer.is_valid(raise_exception=True)
+            self.kwargs['pk'] = instance.id
+            self.perform_update(instance_serializer)
+            instances.append(instance_serializer.instance)
+
+        return Response(
+            RoleSerializer(instances, many=True).data,
             status=status.HTTP_200_OK
         )
 
