@@ -82,8 +82,6 @@ class VotingCommentSerializer(serializers.ModelSerializer):
 
 
 class VotingSerializer(serializers.ModelSerializer):
-    title = serializers.CharField(max_length=150)
-    body = serializers.CharField(max_length=2000)
     creator = UserSerializer(read_only=True)
     options = VotingOptionSerializer(many=True, required=True)
     is_anonymous = serializers.BooleanField(default=False)
@@ -108,25 +106,12 @@ class VotingSerializer(serializers.ModelSerializer):
                     code='min_options_required'
                 )
 
-            bodies = [opt['body'].strip().lower() for opt in options_data]
-            if len(bodies) != len(set(bodies)):
-                raise serializers.ValidationError(
-                    {'options': 'Voting options must be unique'},
-                    code='duplicate_options'
-                )
-
-        if 'end_date' not in data:
+        min_end_date = timezone.now() + timedelta(minutes=1)
+        if data['end_date'] < min_end_date:
             raise serializers.ValidationError(
-                {'end_date': 'This field is required'},
-                code='required'
+                {'end_date': 'End date must be at least 1 minute from now'},
+                code='invalid_end_date'
             )
-        else:
-            min_end_date = timezone.now() + timedelta(hours=1)
-            if data['end_date'] < min_end_date:
-                raise serializers.ValidationError(
-                    {'end_date': 'End date must be at least 1 hour from now'},
-                    code='invalid_end_date'
-                )
 
         return data
 

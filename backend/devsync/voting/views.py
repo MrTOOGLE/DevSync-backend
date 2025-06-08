@@ -1,5 +1,6 @@
 from django.db.models import Count
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
 
@@ -20,9 +21,10 @@ class VotingViewSet(ProjectBasedModelViewSet):
     serializer_class = VotingSerializer
     pagination_class = PublicVotingPagination
     renderer_classes = [VotingListRenderer]
-    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, OrderingFilter, filters.SearchFilter]
     filterset_class = VotingFilter
     ordering_fields = ('title', 'date_started', 'date_ended')
+    search_fields = ('title', 'body')
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
 
     def get_permissions(self):

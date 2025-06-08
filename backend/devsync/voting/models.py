@@ -23,6 +23,16 @@ class Voting(models.Model):
     is_anonymous = models.BooleanField(default=False)
     allow_multiple = models.BooleanField(default=False)
 
+    class Meta:
+        constraints = [
+            models.Index(fields=['project']),
+            models.Index(fields=['title']),
+            models.Index(fields=['status']),
+            models.Index(fields=['body']),
+            models.Index(fields=['date_started']),
+            models.Index(fields=['end_date']),
+        ]
+
     def __str__(self):
         return f"Voting: {self.title} (Status: {self.status})"
 
@@ -43,6 +53,11 @@ class VotingTag(models.Model):
 class VotingOption(models.Model):
     voting = models.ForeignKey(Voting, related_name='options', on_delete=models.CASCADE)
     body = models.CharField(max_length=250)
+
+    class Meta:
+        constraints = [
+            models.Index(fields=['voting']),
+        ]
 
     def __str__(self):
         return f"Option for {self.voting.title}: {self.body}"
@@ -67,6 +82,12 @@ class VotingComment(models.Model):
     body = models.CharField(max_length=3000)
     sender = models.ForeignKey(User, related_name='voting_comments', on_delete=models.SET_NULL, null=True)
     parent_comment = models.ForeignKey('self', related_name='replies', on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.Index(fields=['voting']),
+            models.Index(fields=['date_sent']),
+        ]
 
     def __str__(self):
         return f"Comment by {self.sender}: {self.body[:20]}..."
