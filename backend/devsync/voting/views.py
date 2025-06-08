@@ -1,20 +1,28 @@
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.utils.timezone import now
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import OrderingFilter
 from django.shortcuts import get_object_or_404
+from rest_framework.response import Response
 
 from projects.views import ProjectBasedModelViewSet
 from roles.services.checkers import CreatorBypassChecker, source_path
 from roles.services.enum import PermissionsEnum
 from roles.services.permissions import require_permissions
 from voting.filters import VotingFilter
-from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment
+from voting.models import Voting, VotingOption, VotingOptionChoice, VotingComment, VotingTag
 from voting.paginators import PublicVotingPagination
 from voting.renderers import VotingListRenderer, VotingOptionChoiceListRenderer, \
     VotingCommentListRenderer
-from voting.serializers import VotingSerializer, VotingCommentSerializer, VotingOptionChoiceSerializer, \
+from voting.serializers import (
+    VotingSerializer,
+    VotingCommentSerializer,
+    VotingOptionChoiceSerializer,
     VotingOptionSerializer
+)
 
 
 class VotingViewSet(ProjectBasedModelViewSet):
@@ -23,9 +31,16 @@ class VotingViewSet(ProjectBasedModelViewSet):
     renderer_classes = [VotingListRenderer]
     filter_backends = [DjangoFilterBackend, OrderingFilter, filters.SearchFilter]
     filterset_class = VotingFilter
-    ordering_fields = ('title', 'date_started', 'date_ended')
-    search_fields = ('title', 'body')
+    ordering_fields = ('title', 'date_started', 'end_date')
+    search_fields = ('title', 'body', 'tags__tag')
     http_method_names = ['get', 'post', 'delete', 'head', 'options']
+
+    @action(detail=False, methods=['get'], url_path='tags')
+    def tags(self, request, project_pk=None):
+        tags = VotingTag.objects.filter(
+            voting__project__id=project_pk
+        ).values_list('tag', flat=True).distinct().order_by('tag')
+        return Response(tags)
 
     def get_permissions(self):
         permissions = super().get_permissions()
@@ -33,8 +48,18 @@ class VotingViewSet(ProjectBasedModelViewSet):
 
     def get_queryset(self):
         project = self.project
-        return Voting.objects.filter(project=project).select_related('project', 'creator').annotate(
-            options_count=Count('options'))
+        queryset = Voting.objects.filter(
+            project=project
+        ).select_related(
+            'project', 'creator'
+        ).annotate(
+            options_count=Count('options')
+        )
+
+        queryset.filter(
+            Q(end_date__lt=now()) & ~Q(status='ENDED')
+        ).update(status='ENDED')
+        return queryset
 
     @require_permissions(PermissionsEnum.VOTING_MANAGE, PermissionsEnum.VOTING_CREATE)
     def perform_create(self, serializer):
@@ -105,6 +130,15 @@ class VotingOptionChoiceViewSet(VotingBasedViewSet):
 
     @require_permissions(PermissionsEnum.VOTING_VOTE)
     def perform_create(self, serializer):
+        voting = self.get_voting()
+
+        if voting.status != 'ACTIVE':
+            raise ValidationError("Voting is not active")
+        if voting.end_date and voting.end_date < now():
+            raise ValidationError("Voting is ended")
+        if voting.date_started and voting.date_started > now():
+            raise ValidationError("Voting has not started yet")
+
         serializer.save(user=self.request.user)
 
     @require_permissions(
@@ -151,3 +185,4 @@ class VotingCommentViewSet(VotingBasedViewSet):
     )
     def perform_destroy(self, instance):
         return super().perform_destroy(instance)
+
