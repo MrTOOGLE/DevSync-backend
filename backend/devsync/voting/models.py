@@ -10,9 +10,8 @@ User = get_user_model()
 class Voting(models.Model):
     class Status(models.TextChoices):
         NEW = 'new','Новое'
-        UNDER_REVIEW = 'under_review', 'На рассмотрении'
-        ACCEPTED = 'accepted', 'Принято'
-        REJECTED = 'rejected', 'Отклонено'
+        UNDER_REVIEW = 'pending', 'На рассмотрении'
+        ENDED = 'ended', 'Закончено'
 
     title = models.CharField(max_length=150)
     body = models.CharField(max_length=2000)
@@ -22,14 +21,43 @@ class Voting(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
     project = models.ForeignKey(Project, related_name='votings', on_delete=models.CASCADE)
     is_anonymous = models.BooleanField(default=False)
+    allow_multiple = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['project']),
+            models.Index(fields=['title']),
+            models.Index(fields=['status']),
+            models.Index(fields=['body']),
+            models.Index(fields=['date_started']),
+            models.Index(fields=['end_date']),
+        ]
 
     def __str__(self):
         return f"Voting: {self.title} (Status: {self.status})"
 
 
+class VotingTag(models.Model):
+    voting = models.ForeignKey(Voting, related_name='tags', on_delete=models.CASCADE)
+    tag = models.CharField(max_length=150)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['voting', 'tag'], name='unique_voting_tag'),
+        ]
+
+    def __str__(self):
+        return f"VotingTag: {self.tag}"
+
+
 class VotingOption(models.Model):
     voting = models.ForeignKey(Voting, related_name='options', on_delete=models.CASCADE)
     body = models.CharField(max_length=250)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['voting']),
+        ]
 
     def __str__(self):
         return f"Option for {self.voting.title}: {self.body}"
@@ -54,6 +82,12 @@ class VotingComment(models.Model):
     body = models.CharField(max_length=3000)
     sender = models.ForeignKey(User, related_name='voting_comments', on_delete=models.SET_NULL, null=True)
     parent_comment = models.ForeignKey('self', related_name='replies', on_delete=models.CASCADE, null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['voting']),
+            models.Index(fields=['date_sent']),
+        ]
 
     def __str__(self):
         return f"Comment by {self.sender}: {self.body[:20]}..."

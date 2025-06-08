@@ -38,15 +38,24 @@ class VotingOptionChoiceSerializer(serializers.ModelSerializer):
 
         voting = voting_option.voting
 
-        if VotingOptionChoice.objects.filter(
-                user=user,
-                voting_option__voting=voting,
-                voting_option=voting_option
-        ).exists():
-            raise serializers.ValidationError(
-                {'user': 'This user has already voted'},
-                code='already_voted'
-            )
+        if not voting.allows_multiple:
+            if VotingOptionChoice.objects.filter(
+                    user=user,
+                    voting_option__voting=voting
+            ).exists():
+                raise serializers.ValidationError(
+                    {'user': 'This user has already voted in this voting'},
+                    code='already_voted'
+                )
+        else:
+            if VotingOptionChoice.objects.filter(
+                    user=user,
+                    voting_option=voting_option
+            ).exists():
+                raise serializers.ValidationError(
+                    {'user': 'User has already voted for this option'},
+                    code='already_voted_option'
+                )
         return data
 
     def to_representation(self, instance):
@@ -87,12 +96,13 @@ class VotingSerializer(serializers.ModelSerializer):
     creator = UserSerializer(read_only=True)
     options = VotingOptionSerializer(many=True, required=True)
     is_anonymous = serializers.BooleanField(default=False)
+    allows_multiple = serializers.BooleanField(default=False)
 
     class Meta:
         model = Voting
         fields = [
             'id', 'title', 'body', 'date_started', 'end_date',
-            'creator', 'status', 'options', 'is_anonymous'
+            'creator', 'status', 'options', 'is_anonymous', 'allows_multiple'
         ]
         read_only_fields = ['id', 'creator', 'date_started', 'status']
 
