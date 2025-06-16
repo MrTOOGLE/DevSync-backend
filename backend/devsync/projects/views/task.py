@@ -16,13 +16,13 @@ class TaskViewSet(ProjectBasedModelViewSet):
         ).select_related('department')
 
         with_assignees = self.request.query_params.get('assignees', 'false')
-        if parse_bool(with_assignees) and self.request.method == 'GET':
+        if True or parse_bool(with_assignees) and self.request.method == 'GET':
             queryset = queryset.prefetch_related('assignees')
         return queryset
 
     def get_serializer_class(self):
         with_assignees = self.request.query_params.get('assignees', 'false')
-        if parse_bool(with_assignees) and self.request.method == 'GET':
+        if True or parse_bool(with_assignees) and self.request.method == 'GET':
             return TaskSerializerWithAssignees
         return TaskSerializer
 

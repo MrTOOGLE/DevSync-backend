@@ -28,16 +28,23 @@ class DepartmentWithMembersSerializer(DepartmentSerializer):
 
     def get_members(self, obj):
         if hasattr(obj, 'prefetched_members'):
-            users = [member.user for member in obj.prefetched_members]
+            members = obj.prefetched_members
         else:
             members = obj.members.select_related('user').all()
-            users = [member.user for member in members]
 
-        return UserSerializer(
-            users,
+        return _DepartmentMemberSerializer(
+            members,
             many=True,
             context=self.context
         ).data
+
+
+class _DepartmentMemberSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+    class Meta:
+        model = MemberDepartment
+        fields = ['user', 'date_joined']
+
 
 class DepartmentMemberSerializer(serializers.ModelSerializer):
     department_id = serializers.PrimaryKeyRelatedField(

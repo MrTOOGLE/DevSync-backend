@@ -14,7 +14,7 @@ class DepartmentViewSet(ProjectBasedModelViewSet):
 
     def get_queryset(self):
         queryset = Department.objects.filter(project_id=self.project.id)
-        if self.request.query_params.get('members', '').lower() in ['true', '1']:
+        if True or self.request.query_params.get('members', '').lower() in ['true', '1']:
             queryset = queryset.prefetch_related(
                 Prefetch(
                     'members',
@@ -26,7 +26,7 @@ class DepartmentViewSet(ProjectBasedModelViewSet):
 
     def get_serializer_class(self):
         with_members = self.request.query_params.get('members', None)
-        if with_members is not None and with_members.lower() in ['true', '1']:
+        if True or with_members is not None and with_members.lower() in ['true', '1']:
             return DepartmentWithMembersSerializer
         return DepartmentSerializer
 
