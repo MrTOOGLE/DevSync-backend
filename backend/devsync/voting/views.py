@@ -132,12 +132,8 @@ class VotingOptionChoiceViewSet(VotingBasedViewSet):
     def perform_create(self, serializer):
         voting = self.get_voting()
 
-        if voting.status != 'ACTIVE':
-            raise ValidationError("Voting is not active")
-        if voting.end_date and voting.end_date < now():
+        if voting.status == 'ENDED':
             raise ValidationError("Voting is ended")
-        if voting.date_started and voting.date_started > now():
-            raise ValidationError("Voting has not started yet")
 
         serializer.save(user=self.request.user)
 
