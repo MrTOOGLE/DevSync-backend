@@ -1,5 +1,6 @@
 from django.db.models import Prefetch
 
+from config.utils.utils import parse_bool
 from projects.models import Department, MemberDepartment
 from projects.renderers import DepartmentListRenderer
 from projects.serializers import DepartmentWithMembersSerializer
@@ -14,7 +15,8 @@ class DepartmentViewSet(ProjectBasedModelViewSet):
 
     def get_queryset(self):
         queryset = Department.objects.filter(project_id=self.project.id)
-        if self.request.query_params.get('members', '').lower() in ['true', '1']:
+        with_members = self.request.query_params.get('members', "")
+        if True or parse_bool(with_members):
             queryset = queryset.prefetch_related(
                 Prefetch(
                     'members',
@@ -25,8 +27,8 @@ class DepartmentViewSet(ProjectBasedModelViewSet):
         return queryset
 
     def get_serializer_class(self):
-        with_members = self.request.query_params.get('members', None)
-        if not None and with_members.lower() in ['true', '1']:
+        with_members = self.request.query_params.get('members', "")
+        if True or parse_bool(with_members):
             return DepartmentWithMembersSerializer
         return DepartmentSerializer
 
