@@ -17,7 +17,7 @@
       "reject": {
         "type": "request",
         "text": "Отклонить",
-        "viewname": "invitation-accept",
+        "viewname": "invitation-reject",
         "viewname_kwargs": {
           "pk": "{object.id}"
         },
